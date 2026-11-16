@@ -6,6 +6,29 @@ patches Android, puis l'application Kotlin/Jetpack Compose. L'artifact
 `APK-SHA256SUMS`. Le build exécute les tests du verrou, les tests du superviseur,
 les tests unitaires Kotlin et Android Lint avant de fournir l'APK.
 
+## Reconstruire uniquement l'application
+
+Utiliser **Android application only** dans GitHub Actions, puis **Run workflow**.
+Laisser `native_run_id` vide pour utiliser le dernier artifact natif disponible
+sur `main`, ou saisir l'identifiant numérique d'un run du workflow natif sur
+`main` (visible dans son URL `/actions/runs/…`). Le workflow télécharge le paquet,
+vérifie ses SHA-256 et construit uniquement l'application et son petit superviseur
+C, sans installer Rust ni appeler Cargo.
+
+Les changements sous `android/` et les scripts de build de l'application lancent
+automatiquement ce workflow. Ils ne déclenchent plus **Android native prototype**.
+Le workflow natif se lance automatiquement lorsque les patches, `upstream.json`,
+le script de compilation Rust, la préparation des sources ou le test du verrou
+changent. Une modification du workflow natif lui-même peut être testée en le
+lançant manuellement.
+
+La sélection vérifie que les entrées de compilation natives n'ont pas changé
+depuis l'artifact. Si elles ont changé, ou si les artifacts ont expiré, lancer
+d'abord **Android native prototype**. Aucun repli ne recompile Rust dans le
+workflow application seule. Les nouveaux artifacts natifs sont conservés 90 jours
+et publiés avant le build APK, afin de rester réutilisables même si ce dernier
+échoue. Le run et le commit du binaire réutilisé figurent dans le résumé Actions.
+
 ## Premier essai sur Xiaomi 14T Pro / Android 16
 
 1. Télécharger l'artifact, extraire le ZIP puis ouvrir l'APK sur le téléphone.

@@ -1,0 +1,106 @@
+name: Android application only
+
+on:
+  workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: 'Native workflow run ID (empty: latest available main artifact)'
+        required: false
+        type: string
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - android/**
+      - scripts/build-apk.sh
+      - scripts/select-native-artifact.cjs
+      - tests/supervisor_test.py
+      - tests/select-native-artifact.test.cjs
+      - .github/workflows/android-app.yml
+  pull_request:
+    paths:
+      - android/**
+      - scripts/build-apk.sh
+      - scripts/select-native-artifact.cjs
+      - tests/supervisor_test.py
+      - tests/select-native-artifact.test.cjs
+      - .github/workflows/android-app.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: android-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test native artifact selection
+        run: node --test tests/select-native-artifact.test.cjs
+      - name: Select compatible native artifact from main
+        id: native
+        uses: actions/github-script@v7
+        env:
+          NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        with:
+          script: |
+            const select = require('./scripts/select-native-artifact.cjs');
+            await select({ github, context, core });
+      - name: Download existing Rust binary
+        uses: actions/download-artifact@v4
+        with:
+          name: mina-android-arm64
+          run-id: ${{ steps.native.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: native-artifact
+      - name: Verify and unpack native package
+        run: |
+          cd native-artifact
+          sha256sum -c SHA256SUMS
+          mkdir -p ../dist
+          tar -xzf mina-android-arm64.tar.gz -C ../dist
+          cd ../dist/mina-android-arm64
+          sha256sum -c SHA256SUMS
+          chmod +x mina
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Install Android application SDK and native supervisor compiler
+        run: |
+          ndk=$(python3 -c 'import json; print(json.load(open("upstream.json"))["ndk"])')
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "platforms;android-36" "build-tools;36.0.0"
+      - name: Keep the test APK signing identity across builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mina-android-devnet-debug-signing-v1
+      - name: Build and test application without rebuilding Rust
+        env:
+          MINA_NATIVE_RUN_ID: ${{ steps.native.outputs.run_id }}
+          MINA_NATIVE_SOURCE_SHA: ${{ steps.native.outputs.source_sha }}
+        run: bash scripts/build-apk.sh
+      - name: Upload Android test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mina-android-devnet-apk
+          path: |
+            dist/mina-android-devnet-debug.apk
+            dist/APK-SHA256SUMS
+          if-no-files-found: error
+      - name: Upload application diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app-diagnostics
+          path: |
+            logs/
+            android/app/build/reports/
+          if-no-files-found: ignore

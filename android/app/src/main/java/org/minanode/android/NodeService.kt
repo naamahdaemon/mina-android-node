@@ -7,7 +7,10 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.*
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
@@ -21,7 +24,7 @@ import java.net.Socket
 class NodeService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lifecycle = Mutex()
-    @Volatile private var child: Process? = null
+    @Volatile private var child: java.lang.Process? = null
     private lateinit var files: NodeFiles
     private var wake: PowerManager.WakeLock? = null
 

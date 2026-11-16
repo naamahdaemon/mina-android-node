@@ -17,6 +17,10 @@ et arrêt du nœud, notification persistante, statut et export des logs.
 Télécharger l'artifact `mina-android-devnet-apk` du build réussi.
 Voir [le guide de l'application Android](docs/android-app.md).
 
+Pour les modifications de l'application, **Android application only** réutilise
+un artifact natif existant et évite de recompiler Rust. Il se lance sur les
+changements de l'application ou manuellement avec **Run workflow**.
+
 `upstream.json` fige les versions. `scripts/prepare-source.py` prépare les
 sources et applique `patches/*.patch`. Les adaptations Windows ne sont pas
 appliquées au port Android. Le frontend historique est exclu du checkout
