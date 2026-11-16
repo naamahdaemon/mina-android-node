@@ -29,6 +29,10 @@ class ChainStatusTest {
     @Test(expected = IllegalArgumentException::class)
     fun refusesAnotherNetwork() { ChainStatus.parse(reply.replace("devnet", "mainnet")) }
 
+    @Test fun acceptsSelectedMainnet() {
+        assertEquals(590477L, ChainStatus.parse(reply.replace("devnet", "mainnet"), expectedNetwork = "mainnet").height)
+    }
+
     @Test fun reportsMissingCheckpoint() {
         val input = reply.replace("\"state\":\"saved\",\"height\":590477", "\"state\":\"not_saved\"")
         assertEquals("Aucune sauvegarde pour l’instant", ChainStatus.parse(input).persistence)

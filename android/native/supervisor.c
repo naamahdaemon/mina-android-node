@@ -10,6 +10,22 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdint.h>
+
+static void wipe(unsigned char *bytes, size_t len) {
+    volatile unsigned char *p = bytes;
+    while (len--) *p++ = 0;
+}
+
+static int transfer_all(int fd, unsigned char *bytes, size_t len, int writing) {
+    while (len) {
+        ssize_t n = writing ? write(fd, bytes, len) : read(fd, bytes, len);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return -1;
+        bytes += n; len -= (size_t)n;
+    }
+    return 0;
+}
 
 static long long now_ms(void) {
     struct timespec ts;
@@ -19,18 +35,40 @@ static long long now_ms(void) {
 
 int main(int argc, char **argv) {
     if (argc < 2) { fprintf(stderr, "Missing node executable\n"); return 64; }
+    // One bounded frame is forwarded to a separate stdin pipe for Rust. The
+    // supervisor alone consumes subsequent Stop/EOF on the application's pipe.
+    unsigned char frame[16388] = {0};
+    if (transfer_all(STDIN_FILENO, frame, 4, 0) != 0) return 65;
+    uint32_t len = (uint32_t)frame[0] | ((uint32_t)frame[1] << 8)
+        | ((uint32_t)frame[2] << 16) | ((uint32_t)frame[3] << 24);
+    if (len > 16384 || transfer_all(STDIN_FILENO, frame + 4, len, 0) != 0) {
+        wipe(frame, sizeof(frame)); return 65;
+    }
+    int secret_pipe[2];
+    if (pipe(secret_pipe) != 0) { wipe(frame, sizeof(frame)); return 71; }
     const pid_t owner = getpid();
     const pid_t child = fork();
-    if (child < 0) { perror("fork"); return 71; }
+    if (child < 0) { wipe(frame, sizeof(frame)); close(secret_pipe[0]); close(secret_pipe[1]); perror("fork"); return 71; }
     if (child == 0) {
         // If Android kills the supervisor, the native node cannot stay orphaned.
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) != 0 || getppid() != owner) _exit(71);
-        // The node does not consume the control pipe; only the supervisor does.
-        close(STDIN_FILENO);
+        setpgid(0, 0);
+        close(secret_pipe[1]);
+        if (dup2(secret_pipe[0], STDIN_FILENO) < 0) _exit(71);
+        close(secret_pipe[0]);
+        wipe(frame, sizeof(frame));
         execv(argv[1], &argv[1]);
         perror("execv mina");
         _exit(126);
     }
+    setpgid(child, child);
+    fprintf(stderr, "[app] node-pid=%ld\n", (long)child);
+    close(secret_pipe[0]);
+    signal(SIGPIPE, SIG_IGN);
+    int sent = transfer_all(secret_pipe[1], frame, len + 4, 1);
+    close(secret_pipe[1]);
+    wipe(frame, sizeof(frame));
+    if (sent != 0) kill(-child, SIGKILL);
     int status = 0, stopping = 0;
     long long deadline = 0;
     for (;;) {
@@ -49,13 +87,13 @@ int main(int argc, char **argv) {
             }
             if (stopping) {
                 fprintf(stderr, "[app] Arrêt propre du nœud (SIGINT)\n");
-                kill(child, SIGINT);
+                kill(-child, SIGINT);
                 deadline = now_ms() + 90000;
             }
         } else {
             if (now_ms() >= deadline) {
                 fprintf(stderr, "[app] Arrêt forcé après 90 secondes\n");
-                kill(child, SIGKILL);
+                kill(-child, SIGKILL);
                 while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
                 break;
             }
@@ -63,5 +101,7 @@ int main(int argc, char **argv) {
             nanosleep(&pause, NULL);
         }
     }
+    // Clean up a worker that has not yet noticed its parent's closed pipe.
+    kill(-child, SIGTERM);
     return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 }

@@ -1,4 +1,4 @@
-# Application Android — prototype devnet
+# Application Android — nœud et production
 
 Le workflow **Android native prototype** construit le binaire Rust avec ses
 patches Android, puis l'application Kotlin/Jetpack Compose. L'artifact
@@ -61,10 +61,9 @@ néanmoins limiter ou arrêter le service. Aucun démarrage au boot n'est prévu
 La présence d'un VPN est affichée, compte tenu du ralentissement observé en test.
 
 L'API écoute uniquement sur `127.0.0.1:4300`, et libp2p utilise le port 8303,
-différents des ports Termux utilisés
-pendant les premiers essais. Aucun producteur de blocs ou portefeuille n'est
-configuré. Les délais RPC et l'intervalle de checkpoint restent ceux du moteur
-upstream pour ce premier essai sans VPN. Les logs console sont limités à deux
+différents des ports Termux utilisés pendant les premiers essais. Le profil
+initial est devnet sans production ni worker. Le checkpoint est réglable (30 min
+par défaut) ; les délais réseau étendus sont facultatifs. Les logs sont limités à deux
 fichiers d'environ 4 Mio chacun; les données de chaîne restent persistantes.
 
 ## Cycle de vie natif
@@ -104,15 +103,61 @@ Versions : AGP 8.10.1, Gradle 8.11.1, JDK 17, Kotlin 2.1.21, SDK/target 36.
 Gradle est installé par `gradle/actions/setup-gradle` dans GitHub Actions; la
 compilation locale n'est pas nécessaire. Android Studio peut ouvrir `android/`.
 
-La clé de signature de debug est conservée dans le cache GitHub Actions pour
-permettre les mises à jour. Ce cache peut être évincé : une clé de signature
-durable devra être configurée avant de dépendre des mises à jour pour conserver
-les données. Ne pas désinstaller l'application pour contourner une incompatibilité
+La CI vérifie le certificat contre `android-signing.sha256`. Une clé manquante
+ou différente arrête le build au lieu de produire une mise à jour incompatible.
+Le cache contient encore l'identité existante ; pour la rendre durable, configurer
+le secret Actions `MINA_SIGNING_KEYSTORE_BASE64` avec **ce même keystore** encodé
+en base64, et si nécessaire `MINA_SIGNING_STORE_PASSWORD`,
+`MINA_SIGNING_KEY_PASSWORD`, `MINA_SIGNING_ALIAS`. Ne jamais générer une nouvelle
+clé pour cette migration, ni mettre le keystore ou un mot de passe dans Git.
+Sans secret, la CI utilise le cache existant ; un cache évincé provoque un échec
+explicite. Ne pas désinstaller l'application pour contourner une incompatibilité
 de signature sans accepter de perdre son stockage privé.
+
+## Profils et clé de production
+
+**Réglages** permet de sélectionner mainnet/devnet, la production de blocs,
+un worker SNARK (clé publique, frais MINA et stratégie), les checkpoints et
+les délais réseau. Arrêter le nœud avant de modifier son profil. Les données
+et configurations sont séparées par réseau ; le répertoire devnet existant est
+conservé. Un changement de réseau démarre avec son propre stockage.
+
+Importer le fichier JSON Mina **déjà chiffré**, via le sélecteur Android. Il est
+enveloppé par AES-GCM avec une clé Android Keystore et conservé dans le stockage
+privé exclu des sauvegardes Android. L'original importé reste sous la responsabilité
+de son propriétaire : garder une copie chiffrée hors du téléphone.
+
+Le mot de passe est demandé à chaque lancement du producteur. La boîte de saisie
+désactive sauvegarde, autofill et captures. Le secret passe par un pipe privé,
+avec une trame bornée, puis est effacé au mieux des buffers applicatifs et Rust ;
+il n'entre ni dans les Intent, ni dans les préférences, arguments ou variables
+d'environnement. Rust déchiffre la clé en mémoire pour signer : Keystore protège
+le stockage, pas la clé en cours d'utilisation dans le nœud. Le runtime Android
+peut conserver des copies mémoire temporaires ; aucun effacement absolu n'est promis.
+Le fichier temporaire transmis à Rust reste lui-même chiffré par le mot de passe.
+
+Le patch d'entrée privée n'est utilisé qu'avec le drapeau interne de l'application.
+L'utilisation CLI depuis Termux et son mode `MINA_PRIVKEY_PASS` restent disponibles.
+Les deux paquets bénéficient du dashboard Rust embarqué à la racine de leur API.
+
+## Dashboard et moniteur
+
+**Nœud** ouvre le dashboard upstream embarqué dans une WebView limitée à
+`http://127.0.0.1:4300` : pas d'accès aux fichiers ni de pont JavaScript natif.
+**Moniteur** affiche CPU (100 % = un cœur), RSS, espace disque, batterie et
+température. Les mesures interdites par Android restent absentes.
+
+En production : prochains slots annoncés, blocs canoniques/orphelins, transactions,
+zkApps, préparation, preuve, délai preuve→commit et pics CPU/RAM échantillonnés.
+Les courbes gardent au maximum six heures en mémoire ; les 500 derniers événements
+publics de production sont conservés sur disque par réseau. Les pics sur une preuve
+sont disponibles seulement si des échantillons couvrent sa période. Ce portage natif
+reprend les indicateurs du moniteur Python Windows sans embarquer Python.
 
 ## Validation restante
 
-Le premier APK doit encore être validé sur appareil : extraction et exécution
-des binaires, autorisation de service, synchronisation, arrêt, restauration,
-notification et fonctionnement écran éteint. Un build CI vert ne valide pas ces
-comportements Android à lui seul.
+La synchronisation devnet et la restauration ont été validées sur Xiaomi 14T Pro.
+Valider maintenant les profils, le dashboard, l'import chiffré, le mot de passe
+incorrect puis correct et la production **sur devnet**, avant un essai mainnet.
+Vérifier l'arrêt avec worker, la restauration, la batterie et le fonctionnement
+écran éteint. Un build CI vert ne valide pas ces comportements à lui seul.

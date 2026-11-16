@@ -15,9 +15,9 @@ data class ChainStatus(
     val persistence: String = "En attente",
 ) {
     companion object {
-        fun parse(text: String, nowMs: Long = System.currentTimeMillis()): ChainStatus {
+        fun parse(text: String, nowMs: Long = System.currentTimeMillis(), expectedNetwork: String = "devnet"): ChainStatus {
             val root = JSONObject(text)
-            require(root.getString("network") == "devnet") { "L’API ne répond pas sur devnet" }
+            require(root.getString("network") == expectedNetwork) { "L’API ne répond pas sur le réseau attendu" }
             val frontier = root.getJSONObject("transition_frontier")
             val sync = frontier.getJSONObject("sync")
             val tip = frontier.optJSONObject("best_tip")
@@ -55,12 +55,14 @@ data class ChainStatus(
 }
 
 data class NodeUiState(
+    val network: String = "devnet",
     val run: RunPhase = RunPhase.STOPPED,
     val status: ChainStatus = ChainStatus(),
     val message: String = "Prêt à démarrer sur devnet",
     val log: String = "",
     val vpn: Boolean = false,
     val wakeLock: Boolean = false,
+    val monitor: MonitorState = MonitorState(),
 )
 
 object NodeState {

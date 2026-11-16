@@ -20,6 +20,9 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.nio.CharBuffer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class NodeService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -27,6 +30,8 @@ class NodeService : Service() {
     @Volatile private var child: java.lang.Process? = null
     private lateinit var files: NodeFiles
     private var wake: PowerManager.WakeLock? = null
+    private var producerFile: File? = null
+    @Volatile private var nodePid: Int? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -58,7 +63,15 @@ class NodeService : Service() {
 
     private suspend fun startNode() = lifecycle.withLock {
         if (NodeState.flow.value.run == RunPhase.STOPPING) return@withLock
+        var secret = LaunchSecret.take()
         try {
+            val profile = ProfileStore(this).load()
+            files = NodeFiles(this, profile.network.cli)
+            val vault = ProducerVault(this)
+            profile.validate(vault.exists(profile.network))
+            require(!profile.producer || secret != null) { "Le mot de passe de la clé doit être saisi à chaque lancement" }
+            if (profile.producer) producerFile = vault.materialize(profile.network)
+            NodeState.flow.update { it.copy(network = profile.network.cli, monitor = MonitorState()) }
             val occupied = runCatching {
                 Socket().use { it.connect(InetSocketAddress("127.0.0.1", NodeApi.PORT), 500) }
             }.isSuccess
@@ -67,30 +80,45 @@ class NodeService : Service() {
             val binary = File(native, "libmina.so")
             val supervisor = File(native, "libminasupervisor.so")
             check(binary.canExecute() && supervisor.canExecute()) { "Binaire ARM64 absent ou non exécutable dans cet APK" }
-            files.append("\n=== Démarrage devnet ${java.time.Instant.now()} ===")
-            val builder = ProcessBuilder(
-                supervisor.absolutePath, binary.absolutePath,
-                "--network", "devnet", "node", "--work-dir", files.work.absolutePath,
-                "--http-addr", "127.0.0.1", "--port", NodeApi.PORT.toString(),
-                "--libp2p-port", "8303",
-                "--log-level", "info",
-            ).directory(files.work).redirectErrorStream(true)
+            files.append("\n=== Démarrage ${profile.network.cli} ${java.time.Instant.now()} ===")
+            val builder = ProcessBuilder(listOf(supervisor.absolutePath, binary.absolutePath)
+                + profile.arguments(files.work, producerFile)).directory(files.work).redirectErrorStream(true)
             builder.environment().apply {
+                keys.filter { it.startsWith("MINA_") }.toList().forEach { remove(it) }
                 put("HOME", noBackupFilesDir.absolutePath)
                 put("TMPDIR", cacheDir.absolutePath)
                 put("MINA_DISABLE_FILESYSTEM_LOGGING", "true")
                 put("RUST_BACKTRACE", "1")
+                if (profile.slowNetwork) {
+                    put("STAGED_LEDGER_AUX_AND_PENDING_COINBASES_AT_BLOCK_TIMEOUT", "900")
+                    put("BEST_TIP_WITH_PROOF_TIMEOUT", "120")
+                    put("BLOCK_TIMEOUT", "120")
+                }
             }
             val process = builder.start()
             child = process
+            val encoded = Charsets.UTF_8.encode(CharBuffer.wrap(secret ?: CharArray(0)))
+            val bytes = ByteArray(encoded.remaining()).also { encoded.get(it) }
+            try {
+                require(bytes.size <= 16384) { "Mot de passe trop long" }
+                process.outputStream.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(bytes.size).array())
+                process.outputStream.write(bytes)
+                process.outputStream.flush()
+            } finally {
+                bytes.fill(0); secret?.fill('\u0000'); secret = null
+                if (encoded.hasArray()) encoded.array().fill(0)
+            }
             wake = requireNotNull(getSystemService(PowerManager::class.java))
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MinaNode:active")
                 .apply { setReferenceCounted(false); acquire(10 * 60 * 1000L) }
-            NodeState.flow.update { it.copy(run = RunPhase.RUNNING, wakeLock = true, message = "Nœud lancé · connexion à devnet…") }
+            NodeState.flow.update { it.copy(run = RunPhase.RUNNING, wakeLock = true, message = "Nœud lancé · connexion à ${profile.network.cli}…") }
             val output = scope.launch {
                 try {
                     process.inputStream.bufferedReader().useLines { lines ->
-                        lines.forEach { files.append(it.take(64 * 1024)) }
+                        lines.forEach {
+                            if (it.startsWith("[app] node-pid=")) nodePid = it.substringAfter('=').toIntOrNull()
+                            files.append(it.take(64 * 1024))
+                        }
                     }
                 } catch (error: Exception) {
                     NodeState.message("Journal : ${error.message}")
@@ -98,14 +126,16 @@ class NodeService : Service() {
             }
             val poll = scope.launch {
                 var lastWake = SystemClock.elapsedRealtime()
+                val monitor = ProductionMonitor(this@NodeService, files)
                 while (isActive && process.isAlive) {
                     val vpn = requireNotNull(getSystemService(ConnectivityManager::class.java)).let { manager ->
                         manager.getNetworkCapabilities(manager.activeNetwork)
                             ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
                     }
-                    val result = runCatching { NodeApi.status() }
+                    val result = runCatching { NodeApi.status(profile.network.cli) }
+                    val measured = runCatching { monitor.sample(nodePid, profile.producer) }.getOrNull()
                     NodeState.flow.update {
-                        it.copy(status = result.getOrDefault(it.status), vpn = vpn,
+                        it.copy(status = result.getOrDefault(it.status), vpn = vpn, monitor = measured ?: it.monitor,
                             log = runCatching { files.tail() }.getOrDefault(it.log),
                             message = if (it.run == RunPhase.STOPPING) it.message
                                 else result.fold({ "API locale disponible" }, { "API en attente : ${it.message}" }))
@@ -119,7 +149,7 @@ class NodeService : Service() {
                         requireNotNull(getSystemService(NotificationManager::class.java)).notify(ID,
                             notification("${NodeState.flow.value.status.phase} · ${NodeState.flow.value.status.peers} pairs"))
                     }
-                    delay(5000)
+                    delay(if (profile.producer) 1000 else 5000)
                 }
             }
             scope.launch {
@@ -130,6 +160,8 @@ class NodeService : Service() {
                     if (child === process) {
                         val stopped = NodeState.flow.value.run == RunPhase.STOPPING
                         child = null
+                        nodePid = null
+                        producerFile?.delete(); producerFile = null
                         files.append("=== Fin du processus : $code ===")
                         releaseWake()
                         NodeState.flow.update { it.copy(
@@ -144,6 +176,8 @@ class NodeService : Service() {
         } catch (error: Exception) {
             child?.destroyForcibly()
             child = null
+            secret?.fill('\u0000'); LaunchSecret.clear()
+            producerFile?.delete(); producerFile = null
             releaseWake()
             runCatching { files.append("Démarrage impossible : ${error.message}") }
             NodeState.flow.update { it.copy(run = RunPhase.ERROR, wakeLock = false, message = error.message ?: "Erreur de démarrage") }
@@ -153,6 +187,7 @@ class NodeService : Service() {
     }
 
     private fun requestStop() {
+        LaunchSecret.clear()
         NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = "Arrêt propre en cours…") }
         scope.launch {
             lifecycle.withLock {
@@ -175,6 +210,7 @@ class NodeService : Service() {
     }
 
     override fun onDestroy() {
+        LaunchSecret.clear()
         // EOF tells the supervisor to stop the node even if Android destroys
         // the service without an explicit Stop action.
         runCatching { child?.outputStream?.close() }
@@ -190,7 +226,7 @@ class NodeService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, NodeService::class.java).setAction(STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_node).setContentTitle("Mina Node · devnet")
+            .setSmallIcon(R.drawable.ic_node).setContentTitle("Mina Node · ${NodeState.flow.value.network}")
             .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(0, "Arrêter", stop).build()
     }

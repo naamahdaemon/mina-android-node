@@ -16,10 +16,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".DashboardActivity" android:exported="false" />
         <service android:name=".NodeService" android:exported="false"
             android:foregroundServiceType="specialUse" android:stopWithTask="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started Mina devnet peer-to-peer full node with ongoing verification and local chain persistence, stopped explicitly by the user." />
+                android:value="User-started Mina peer-to-peer full node with ongoing verification and local chain persistence, stopped explicitly by the user." />
         </service>
     </application>
 </manifest>

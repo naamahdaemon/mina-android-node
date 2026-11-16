@@ -30,6 +30,8 @@ export ANDROID_NDK_HOME="$ndk"
 export ANDROID_NDK_ROOT="$ndk"
 mkdir -p logs dist target
 python3 scripts/prepare-source.py 2>&1 | tee logs/prepare.log
+cargo +"$toolchain" test --manifest-path tests/credentials/Cargo.toml \
+  2>&1 | tee logs/credential-tests.log
 # Test the exact Android flock implementation on Linux without building a
 # second copy of the node. Also ship its Android test executable for Termux.
 rustup run "$toolchain" rustc --edition 2021 --test tests/android-file-lock.rs \
@@ -39,9 +41,15 @@ rustup run "$toolchain" rustc --edition 2021 --test tests/android-file-lock.rs \
   --target "$target" -C linker="$CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER" \
   -C link-arg=-Wl,-z,max-page-size=16384 -o target/frontier-lock-tests
 cd upstream/mina-rust
+(
+  cd ui
+  npm ci
+  npm run build:dashboard
+  test -s dashboard/dist/index.html
+) 2>&1 | tee "$root/logs/dashboard-build.log"
 cargo +"$toolchain" build --release --locked --target "$target" \
   -p mina-cli --bin mina --no-default-features \
-  --features p2p-libp2p,embedded-circuits,exit-on-invalid-peers \
+  --features p2p-libp2p,embedded-circuits,exit-on-invalid-peers,dashboard \
   2>&1 | tee "$root/logs/cargo-build.log"
 cd "$root"
 package="$root/dist/mina-android-arm64"

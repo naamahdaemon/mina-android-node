@@ -19,6 +19,12 @@ android {
         buildConfigField("String", "SOURCE_COMMIT", "\"${providers.environmentVariable("GITHUB_SHA").orNull ?: "local"}\"")
     }
     buildFeatures { compose = true; buildConfig = true }
+    signingConfigs.getByName("debug") {
+        providers.environmentVariable("MINA_SIGNING_KEYSTORE").orNull?.let { storeFile = file(it) }
+        storePassword = providers.environmentVariable("MINA_SIGNING_STORE_PASSWORD").orElse("android").get()
+        keyPassword = providers.environmentVariable("MINA_SIGNING_KEY_PASSWORD").orElse("android").get()
+        keyAlias = providers.environmentVariable("MINA_SIGNING_ALIAS").orElse("androiddebugkey").get()
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     packaging { jniLibs { useLegacyPackaging = true; keepDebugSymbols += "**/*.so" } }

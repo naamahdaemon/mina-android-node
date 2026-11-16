@@ -2,6 +2,7 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
+source "$root/scripts/prepare-signing.sh"
 python3 -m unittest discover -s tests -p test_apk_version.py
 readarray -t apk_version < <(python3 scripts/apk-version.py)
 export APK_VERSION_CODE=${apk_version[0]}

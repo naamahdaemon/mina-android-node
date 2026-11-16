@@ -4,8 +4,8 @@ import android.content.Context
 import java.io.File
 import java.io.RandomAccessFile
 
-class NodeFiles(context: Context) {
-    val work = File(context.noBackupFilesDir, "node/devnet").apply { mkdirs() }
+class NodeFiles(context: Context, network: String = "devnet") {
+    val work = File(context.noBackupFilesDir, "node/$network").apply { mkdirs() }
     val logs = File(context.noBackupFilesDir, "logs").apply { mkdirs() }
     val console = File(logs, "console.log")
     val previous = File(logs, "console.previous.log")
@@ -31,7 +31,7 @@ class NodeFiles(context: Context) {
 
     @Synchronized fun export(destination: java.io.OutputStream) {
         destination.writer().use { out ->
-            out.write("Mina Android Node · devnet\nApplication ${BuildConfig.VERSION_NAME}\nSource ${BuildConfig.SOURCE_COMMIT}\n\n")
+            out.write("Mina Android Node\nApplication ${BuildConfig.VERSION_NAME}\nSource ${BuildConfig.SOURCE_COMMIT}\n\n")
             for (file in listOf(previous, console)) {
                 if (file.exists()) {
                     out.write("\n--- ${file.name} ---\n")

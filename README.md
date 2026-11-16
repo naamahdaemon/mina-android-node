@@ -12,8 +12,9 @@ Android `27.3.13750724`, Rust `1.92.0` et la cible `aarch64-linux-android`.
 Il démarre sur les pushes de code et peut être lancé avec **Run workflow**.
 Aucune compilation locale n'est nécessaire.
 
-La CI construit aussi un premier APK **Mina Node** pour Android ARM64 : démarrage
-et arrêt du nœud, notification persistante, statut et export des logs.
+La CI construit aussi un APK **Mina Node** pour Android ARM64 : profils mainnet/
+devnet, démarrage et arrêt, persistance, dashboard intégré, moniteur de ressources,
+production avec clé chiffrée et worker SNARK.
 Télécharger l'artifact `mina-android-devnet-apk` du build réussi.
 Voir [le guide de l'application Android](docs/android-app.md).
 
@@ -26,8 +27,8 @@ sources et applique `patches/*.patch`. Les adaptations Windows ne sont pas
 appliquées au port Android. Le frontend historique est exclu du checkout
 pour permettre aussi l'inspection des sources sous Windows.
 
-La première configuration utilise libp2p et les circuits embarqués, sans
-WebRTC ni dashboard. Android utilise son allocateur système. Le linker est
+La configuration utilise libp2p, les circuits et le dashboard embarqués, sans
+WebRTC. Android utilise son allocateur système. Le linker est
 configuré pour des segments alignés sur 16 Kio. La compatibilité effective
 doit être vérifiée sur appareil.
 
@@ -37,9 +38,9 @@ Voir [les instructions Termux](docs/termux.md).
 
 ## État
 
-Chaîne CI et première adaptation en préparation. Compilation, démarrage,
-synchronisation et reprise sur téléphone restent à valider. L'application
-Android et la production de blocs ne sont pas encore qualifiées.
+Compilation, synchronisation devnet et restauration validées sur Xiaomi 14T Pro
+(Android 16, 12 Go RAM). Les nouveaux profils, la production et le worker doivent
+encore être validés sur appareil, d'abord sur devnet.
 
 ## Attribution
 

@@ -10,6 +10,7 @@ on:
       - scripts/build-android.sh
       - scripts/prepare-source.py
       - tests/android-file-lock.rs
+      - tests/credentials/**
   pull_request:
     paths:
       - upstream.json
@@ -17,6 +18,7 @@ on:
       - scripts/build-android.sh
       - scripts/prepare-source.py
       - tests/android-file-lock.rs
+      - tests/credentials/**
 
 permissions:
   contents: read
@@ -26,7 +28,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Install Android application SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Check Kotlin, lint and supervisor before the expensive Rust build
+        run: |
+          mkdir -p target
+          cc -std=c11 -Wall -Wextra -Werror android/native/supervisor.c -o target/supervisor-host
+          python3 tests/supervisor_test.py target/supervisor-host
+          cd android
+          gradle --no-daemon --console=plain testDebugUnitTest lintDebug
   build:
+    needs: validate-app
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -48,6 +72,9 @@ jobs:
             target
           key: android-arm64-${{ runner.os }}-${{ hashFiles('upstream.json', 'patches/**', 'scripts/build-android.sh') }}
           restore-keys: android-arm64-${{ runner.os }}-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.0'
       - name: Build Android ARM64 binary
         run: bash scripts/build-android.sh
       - name: Upload reusable native binary before building the application
@@ -74,6 +101,11 @@ jobs:
           path: ~/.android/debug.keystore
           key: mina-android-devnet-debug-signing-v1
       - name: Build and test Android application
+        env:
+          MINA_SIGNING_KEYSTORE_BASE64: ${{ secrets.MINA_SIGNING_KEYSTORE_BASE64 }}
+          MINA_SIGNING_STORE_PASSWORD: ${{ secrets.MINA_SIGNING_STORE_PASSWORD }}
+          MINA_SIGNING_KEY_PASSWORD: ${{ secrets.MINA_SIGNING_KEY_PASSWORD }}
+          MINA_SIGNING_ALIAS: ${{ secrets.MINA_SIGNING_ALIAS }}
         run: bash scripts/build-apk.sh
       - name: Upload Android test APK
         uses: actions/upload-artifact@v4

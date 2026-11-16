@@ -13,6 +13,8 @@ on:
       - android/**
       - scripts/build-apk.sh
       - scripts/apk-version.py
+      - scripts/prepare-signing.sh
+      - android-signing.sha256
       - tests/test_apk_version.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
@@ -24,6 +26,8 @@ on:
       - android/**
       - scripts/build-apk.sh
       - scripts/apk-version.py
+      - scripts/prepare-signing.sh
+      - android-signing.sha256
       - tests/test_apk_version.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
@@ -125,6 +129,10 @@ jobs:
           key: mina-android-devnet-debug-signing-v1
       - name: Build and test application without rebuilding Rust
         env:
+          MINA_SIGNING_KEYSTORE_BASE64: ${{ secrets.MINA_SIGNING_KEYSTORE_BASE64 }}
+          MINA_SIGNING_STORE_PASSWORD: ${{ secrets.MINA_SIGNING_STORE_PASSWORD }}
+          MINA_SIGNING_KEY_PASSWORD: ${{ secrets.MINA_SIGNING_KEY_PASSWORD }}
+          MINA_SIGNING_ALIAS: ${{ secrets.MINA_SIGNING_ALIAS }}
           MINA_NATIVE_RUN_ID: ${{ steps.native.outputs.run_id }}
           MINA_NATIVE_SOURCE_SHA: ${{ steps.native.outputs.source_sha }}
         run: bash scripts/build-apk.sh
