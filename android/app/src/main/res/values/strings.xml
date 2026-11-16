@@ -128,7 +128,7 @@
     <string name="clean_stop">Stopping gracefully…</string>
     <string name="journal_error">Logs: %1$s</string>
     <string name="notification_channel">Mina node</string>
-    <string name="notification_status">%1$s · %2$s peers</string>
+    <string name="notification_status">%1$s · %2$d peers</string>
     <string name="sync_synced">Synced</string>
     <string name="sync_catchup">Catch-up</string>
     <string name="sync_bootstrap">Bootstrap</string>

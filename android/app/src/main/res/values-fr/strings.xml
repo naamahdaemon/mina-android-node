@@ -128,7 +128,7 @@
     <string name="clean_stop">Arrêt propre en cours…</string>
     <string name="journal_error">Journal : %1$s</string>
     <string name="notification_channel">Nœud Mina</string>
-    <string name="notification_status">%1$s · %2$s pairs</string>
+    <string name="notification_status">%1$s · %2$d pairs</string>
     <string name="sync_synced">Synchronisé</string>
     <string name="sync_catchup">Rattrapage</string>
     <string name="sync_bootstrap">Initialisation</string>
