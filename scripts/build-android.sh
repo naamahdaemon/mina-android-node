@@ -12,7 +12,8 @@ llvm="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
 test -x "$llvm/aarch64-linux-android${api}-clang"
 export PATH="$llvm:$PATH"
 command -v protoc
-rustup toolchain install "$toolchain" --profile minimal
+rustup toolchain install "$toolchain" --profile minimal --component rustfmt
+rustup run "$toolchain" rustfmt --version
 rustup target add "$target" --toolchain "$toolchain"
 export CARGO_TARGET_DIR="$root/target"
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
