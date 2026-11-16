@@ -137,7 +137,8 @@ class MainActivity : ComponentActivity() {
                             }
                             if (!hamburger) NodeMenu(page, onSelect = { select(it) })
                         }
-                        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name }) { index ->
+                        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name },
+                            flingBehavior = deliberatePagerFling(pager)) { index ->
                             val current = NodePage.entries[index]
                             if (current == NodePage.DASHBOARD) {
                                 if (state.run == RunPhase.RUNNING) AndroidView(
@@ -179,13 +180,7 @@ class MainActivity : ComponentActivity() {
                         Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(when (state.run) {
-                                    RunPhase.STOPPED -> stringResource(R.string.stopped)
-                                    RunPhase.STARTING -> stringResource(R.string.starting)
-                                    RunPhase.RUNNING -> phaseText(context, state.status.phase)
-                                    RunPhase.STOPPING -> stringResource(R.string.stopping)
-                                    RunPhase.ERROR -> stringResource(R.string.attention_required)
-                                }, style = MaterialTheme.typography.titleLarge)
+                                NodeStatusBadge(state.run, state.status.phase)
                                 Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
