@@ -39,6 +39,12 @@ class PatchSeriesTest(unittest.TestCase):
                     self.assertEqual(0, result.returncode, f"{patch.name} {options}: {result.stderr.decode(errors='replace')}")
             credentials = target / "crates/cli/src/android_credentials.rs"
             self.assertIn("mot de passe é", credentials.read_text(encoding="utf-8"))
+            # commands/node is compiled in BOTH the library and binary crates.
+            # Registering this crate-root helper only in main.rs breaks the lib.
+            for entry in ("lib.rs", "main.rs"):
+                root = (target / "crates/cli/src" / entry).read_text(encoding="utf-8")
+                self.assertIn('pub mod commands;', root, entry)
+                self.assertRegex(root, r'#\[cfg\(target_os = "android"\)\]\s+mod android_credentials;', entry)
             node = (target / "crates/cli/src/commands/node/mod.rs").read_text(encoding="utf-8")
             self.assertIn('"0.12345678é"', node)
 
