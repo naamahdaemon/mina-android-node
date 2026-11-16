@@ -1,0 +1,57 @@
+name: Android native prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'codex/**']
+    paths-ignore: ['docs/**', '**.md']
+  pull_request:
+    paths-ignore: ['docs/**', '**.md']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config libclang-dev protobuf-compiler perl
+      - name: Install pinned Android NDK
+        run: |
+          ndk=$(python3 -c 'import json; print(json.load(open("upstream.json"))["ndk"])')
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk"
+      - name: Cache Rust dependencies and compilation
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: android-arm64-${{ runner.os }}-${{ hashFiles('upstream.json', 'patches/**', 'scripts/build-android.sh') }}
+          restore-keys: android-arm64-${{ runner.os }}-
+      - name: Build Android ARM64 binary
+        run: bash scripts/build-android.sh
+      - name: Upload Termux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mina-android-arm64
+          path: |
+            dist/mina-android-arm64.tar.gz
+            dist/SHA256SUMS
+          if-no-files-found: error
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-diagnostics
+          path: logs/
+          if-no-files-found: ignore

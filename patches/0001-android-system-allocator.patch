@@ -1,0 +1,55 @@
+diff --git a/crates/cli/Cargo.toml b/crates/cli/Cargo.toml
+--- a/crates/cli/Cargo.toml
++++ b/crates/cli/Cargo.toml
+@@ -45,6 +45,9 @@
+ 
+ [target.'cfg(not(target_family = "wasm"))'.dependencies]
+ redux = { workspace = true, features = ["serializable_callbacks"] }
++
++
++[target.'cfg(all(not(target_family = "wasm"), not(target_os = "android")))'.dependencies]
+ tikv-jemallocator = { workspace = true }
+ 
+ [target.'cfg(target_arch = "aarch64")'.dependencies]
+@@ -61,7 +64,7 @@
+ mina-node-common = { workspace = true }
+ mina-node-report = { workspace = true, features = ["test-support"] }
+ 
+-[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
++[target.'cfg(all(not(target_family = "wasm"), not(target_os = "android")))'.dev-dependencies]
+ # MEM-ARM: reads jemalloc's compiled page size and arena default in tests.
+ tikv-jemalloc-sys = "0.6"
+ 
+diff --git a/crates/cli/src/main.rs b/crates/cli/src/main.rs
+--- a/crates/cli/src/main.rs
++++ b/crates/cli/src/main.rs
+@@ -1,17 +1,17 @@
+ // jemalloc fixes its page size at build time and rejects larger kernel pages.
+ // .cargo/config.toml builds it for 64 KiB pages on 64-bit ARM Linux, so one
+ // binary runs on 4, 16 and 64 KiB kernels.
+-#[cfg(not(target_family = "wasm"))]
++#[cfg(all(not(target_family = "wasm"), not(target_os = "android")))]
+ use tikv_jemallocator::Jemalloc;
+ 
+-#[cfg(not(target_family = "wasm"))]
++#[cfg(all(not(target_family = "wasm"), not(target_os = "android")))]
+ #[global_allocator]
+ static GLOBAL: Jemalloc = Jemalloc;
+ 
+ // MEM-JE's 8h devnet comparisons cut full-node RSS by about 20% with CPU
+ // within 5% of control.
+ // jemalloc reads this before _RJEM_MALLOC_CONF, preserving operator overrides.
+-#[cfg(not(target_family = "wasm"))]
++#[cfg(all(not(target_family = "wasm"), not(target_os = "android")))]
+ #[used]
+ #[unsafe(export_name = "_rjem_malloc_conf")]
+ pub static JEMALLOC_CONF: Option<&'static std::ffi::c_char> =
+@@ -96,7 +96,7 @@
+     app.command.run(app.network)
+ }
+ 
+-#[cfg(all(test, not(target_family = "wasm")))]
++#[cfg(all(test, not(target_family = "wasm"), not(target_os = "android")))]
+ mod allocator_tests {
+     use std::ffi::{c_void, CStr};
+ 

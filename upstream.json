@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/minanode/mina-rust.git",
+  "revision": "5ee3c569bc00a2ea8631f6373bd151322a4566d1",
+  "toolchain": "1.92.0",
+  "target": "aarch64-linux-android",
+  "api": 28,
+  "ndk": "27.3.13750724"
+}
