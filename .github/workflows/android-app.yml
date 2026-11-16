@@ -122,11 +122,6 @@ jobs:
         run: |
           ndk=$(python3 -c 'import json; print(json.load(open("upstream.json"))["ndk"])')
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "platforms;android-36" "build-tools;36.0.0"
-      - name: Keep the test APK signing identity across builds
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: mina-android-devnet-debug-signing-v1
       - name: Build and test application without rebuilding Rust
         env:
           MINA_SIGNING_KEYSTORE_BASE64: ${{ secrets.MINA_SIGNING_KEYSTORE_BASE64 }}

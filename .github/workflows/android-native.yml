@@ -97,11 +97,6 @@ jobs:
           gradle-version: '8.11.1'
       - name: Install Android application SDK
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
-      - name: Keep the test APK signing identity across builds
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: mina-android-devnet-debug-signing-v1
       - name: Build and test Android application
         env:
           MINA_SIGNING_KEYSTORE_BASE64: ${{ secrets.MINA_SIGNING_KEYSTORE_BASE64 }}

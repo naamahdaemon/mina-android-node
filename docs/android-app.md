@@ -105,13 +105,16 @@ compilation locale n'est pas nécessaire. Android Studio peut ouvrir `android/`.
 
 La CI vérifie le certificat contre `android-signing.sha256`. Une clé manquante
 ou différente arrête le build au lieu de produire une mise à jour incompatible.
-Le cache contient encore l'identité existante ; pour la rendre durable, configurer
-le secret Actions `MINA_SIGNING_KEYSTORE_BASE64` avec **ce même keystore** encodé
+La signature utilise exclusivement les secrets Actions, sans cache. Configurer
+le secret Actions `MINA_SIGNING_KEYSTORE_BASE64` avec le keystore durable encodé
 en base64, et si nécessaire `MINA_SIGNING_STORE_PASSWORD`,
 `MINA_SIGNING_KEY_PASSWORD`, `MINA_SIGNING_ALIAS`. Ne jamais générer une nouvelle
 clé pour cette migration, ni mettre le keystore ou un mot de passe dans Git.
-Sans secret, la CI utilise le cache existant ; un cache évincé provoque un échec
-explicite. Ne pas désinstaller l'application pour contourner une incompatibilité
+Sans secret, la CI échoue explicitement. Le keystore est matérialisé dans le
+répertoire temporaire privé du runner et supprimé à la sortie du script.
+L'identité durable a été renouvelée après perte de l'ancienne clé de debug ;
+la migration depuis les anciens APK nécessite une réinstallation unique.
+Les versions suivantes utilisent la même identité. Ne pas désinstaller l'application pour contourner une incompatibilité
 de signature sans accepter de perdre son stockage privé.
 
 ## Profils et clé de production

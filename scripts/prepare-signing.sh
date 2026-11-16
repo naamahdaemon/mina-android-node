@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Sourced by build-apk.sh; a cache miss must never silently change identity.
-export MINA_SIGNING_KEYSTORE="$HOME/.android/debug.keystore"
-export MINA_SIGNING_STORE_PASSWORD=${MINA_SIGNING_STORE_PASSWORD:-android}
-export MINA_SIGNING_KEY_PASSWORD=${MINA_SIGNING_KEY_PASSWORD:-android}
-export MINA_SIGNING_ALIAS=${MINA_SIGNING_ALIAS:-androiddebugkey}
-mkdir -p "$HOME/.android"
-if [[ -n "${MINA_SIGNING_KEYSTORE_BASE64:-}" ]]; then
-  umask 077
-  printf '%s' "$MINA_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$MINA_SIGNING_KEYSTORE"
-fi
+# Sourced by build-apk.sh. Identity comes only from durable GitHub secrets.
+: "${RUNNER_TEMP:?Run this build in GitHub Actions}"
+: "${MINA_SIGNING_KEYSTORE_BASE64:?Configure the repository signing keystore secret}"
+: "${MINA_SIGNING_STORE_PASSWORD:?Configure the repository signing password secret}"
+: "${MINA_SIGNING_KEY_PASSWORD:?Configure the repository signing key password secret}"
+: "${MINA_SIGNING_ALIAS:?Configure the repository signing alias secret}"
+export MINA_SIGNING_STORE_PASSWORD MINA_SIGNING_KEY_PASSWORD MINA_SIGNING_ALIAS
+export MINA_SIGNING_KEYSTORE="$RUNNER_TEMP/mina-signing/identity.p12"
+umask 077
+mkdir -p "$RUNNER_TEMP/mina-signing"
+chmod 700 "$RUNNER_TEMP/mina-signing"
+trap 'rm -f -- "$MINA_SIGNING_KEYSTORE"' EXIT
+printf '%s' "$MINA_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$MINA_SIGNING_KEYSTORE"
 test -s "$MINA_SIGNING_KEYSTORE" || {
   echo 'Signing identity missing. Configure MINA_SIGNING_KEYSTORE_BASE64 with the existing key; generating a replacement would break updates.' >&2
   exit 1
