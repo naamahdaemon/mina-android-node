@@ -5,7 +5,13 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.graphics.Color
+import android.view.ViewGroup
 import android.webkit.*
+import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import java.io.ByteArrayInputStream
 
 class DashboardActivity : Activity() {
@@ -15,6 +21,20 @@ class DashboardActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled") // Only our bundled dashboard at the node's exact local origin.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val container = FrameLayout(this).apply { setBackgroundColor(Color.rgb(8, 13, 19)) }
+        // Resize the WebView's actual viewport. Padding inside the WebView would
+        // leave the dashboard's fixed header underneath Android's status bar.
+        ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        WindowCompat.getInsetsController(window, container).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -37,7 +57,9 @@ class DashboardActivity : Activity() {
             }
             loadUrl("http://127.0.0.1:${NodeApi.PORT}/")
         }
-        setContentView(web)
+        container.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        setContentView(container)
+        ViewCompat.requestApplyInsets(container)
     }
 
     override fun onDestroy() { web?.destroy(); web = null; super.onDestroy() }

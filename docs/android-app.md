@@ -156,6 +156,8 @@ Les deux paquets bénéficient du dashboard Rust embarqué à la racine de leur 
 
 **Nœud** ouvre le dashboard upstream embarqué dans une WebView limitée à
 `http://127.0.0.1:4300` : pas d'accès aux fichiers ni de pont JavaScript natif.
+Son viewport respecte les barres système, l'encoche et le clavier Android,
+y compris lorsque le système impose l'affichage bord à bord.
 **Moniteur** affiche CPU (100 % = un cœur), RSS, espace disque, batterie et
 température. Les mesures interdites par Android restent absentes.
 
