@@ -164,6 +164,9 @@ Les deux paquets bénéficient du dashboard Rust embarqué à la racine de leur 
 `http://127.0.0.1:4300` : pas d'accès aux fichiers ni de pont JavaScript natif.
 Son viewport respecte les barres système, l'encoche et le clavier Android,
 y compris lorsque le système impose l'affichage bord à bord.
+L'apparence des barres système est appliquée seulement après attachement de la vue.
+Une erreur d'ouverture ou un arrêt du renderer WebView affiche un écran de retour/
+réessai et écrit un diagnostic sans données de saisie dans le Journal.
 **Moniteur** affiche CPU (100 % = un cœur), RSS, espace disque, batterie et
 température. Les mesures interdites par Android restent absentes.
 Les courbes affichent une grille, les graduations RAM/CPU et les horaires locaux ;
