@@ -31,8 +31,25 @@ data class ChainStatus(
                     peers.getJSONObject(it).optString("connection_status") == "Connected"
                 },
                 uptimeSeconds = root.optLong("uptime_secs"),
-                persistence = if (root.optJSONObject("frontier_store") == null) "Désactivée" else "Activée",
+                persistence = persistenceStatus(root.optJSONObject("frontier_store")),
             )
+        }
+
+        private fun persistenceStatus(store: JSONObject?): String {
+            if (store == null) return "Désactivée"
+            if (store.optBoolean("locked")) return "Verrouillée par une autre instance"
+            val unavailable = store.optString("unavailable").takeUnless { it.isBlank() || it == "null" }
+            if (unavailable != null) return "Indisponible : $unavailable"
+            if (!store.optBoolean("open")) return "Ouverture en cours"
+            val saved = store.optJSONObject("saved_chain") ?: return "État de sauvegarde en attente"
+            return when (saved.optString("state")) {
+                "checking" -> "Vérification de la sauvegarde"
+                "not_saved" -> "Aucune sauvegarde pour l’instant"
+                "saved" -> "Chaîne sauvegardée · hauteur ${saved.optLong("height")}"
+                "not_restorable" -> "Sauvegarde non restaurable : ${saved.optString("reason")}"
+                "unknown" -> "État inconnu : ${saved.optString("reason")}"
+                else -> "État de sauvegarde inconnu"
+            }
         }
     }
 }

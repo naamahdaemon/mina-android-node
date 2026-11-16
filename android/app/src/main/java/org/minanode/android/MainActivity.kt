@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                             Metric("PAIRS", state.status.peers.toString(), Modifier.weight(1f))
                         }
                         Text("Âge du bloc : ${state.status.ageSeconds?.let { "$it s" } ?: "—"}  ·  Uptime : ${state.status.uptimeSeconds} s")
-                        Text("Persistance : ${state.status.persistence} · API 127.0.0.1:${NodeApi.PORT}", style = MaterialTheme.typography.bodySmall)
+                        Text("Sauvegarde : ${state.status.persistence} · API 127.0.0.1:${NodeApi.PORT}", style = MaterialTheme.typography.bodySmall)
                         if (state.vpn) Card {
                             Text("VPN détecté. Lors des essais, il ralentissait fortement la synchronisation. Essayez sans VPN si le nœud prend du retard.", Modifier.padding(16.dp))
                         }

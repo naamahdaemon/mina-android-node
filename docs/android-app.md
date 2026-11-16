@@ -6,6 +6,13 @@ patches Android, puis l'application Kotlin/Jetpack Compose. L'artifact
 `APK-SHA256SUMS`. Le build exécute les tests du verrou, les tests du superviseur,
 les tests unitaires Kotlin et Android Lint avant de fournir l'APK.
 
+L'indicateur **Sauvegarde** affiche l'état réel du frontier store : ouverture,
+absence de checkpoint, hauteur sauvegardée, vérification ou erreur. Le stockage
+disque des comptes (`ledger-accounts`) utilise le même verrou Android natif que
+le frontier store. Les deux mécanismes ont des rôles distincts : les fichiers
+de comptes soutiennent le fonctionnement en cours, les checkpoints permettent
+de restaurer la chaîne au prochain démarrage.
+
 ## Reconstruire uniquement l'application
 
 Utiliser **Android application only** dans GitHub Actions, puis **Run workflow**.

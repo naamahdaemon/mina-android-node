@@ -1,45 +1,19 @@
-diff --git a/crates/node/src/persist/fs_backend.rs b/crates/node/src/persist/fs_backend.rs
---- a/crates/node/src/persist/fs_backend.rs
-+++ b/crates/node/src/persist/fs_backend.rs
-@@ -12,6 +12,10 @@
- };
+diff --git a/crates/core/src/lib.rs b/crates/core/src/lib.rs
+--- a/crates/core/src/lib.rs
++++ b/crates/core/src/lib.rs
+@@ -2,6 +2,8 @@
+ extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
  
- use mina_core::ChainId;
-+
+ pub mod distributed_pool;
 +#[cfg(target_os = "android")]
-+#[path = "android_file_lock.rs"]
-+mod android_file_lock;
- 
- use super::{
-     backend::{
-@@ -85,14 +89,20 @@
-             .read(true)
-             .write(true)
-             .open(self.path(LOCK_FILE)?)?;
--        match file.try_lock() {
-+        #[cfg(target_os = "android")]
-+        let result = android_file_lock::try_lock_exclusive(&file);
-+        #[cfg(not(target_os = "android"))]
-+        let result = match file.try_lock() {
-             Ok(()) => {
--                self.lock = Some(file);
-                 Ok(())
-             }
-             Err(fs::TryLockError::WouldBlock) => Err(io::ErrorKind::WouldBlock.into()),
-             Err(fs::TryLockError::Error(error)) => Err(error),
--        }
-+        };
-+        result?;
-+        // Closing this descriptor releases the lock, including on process exit.
-+        self.lock = Some(file);
-+        Ok(())
-     }
- 
-     fn list(&mut self) -> io::Result<Vec<String>> {
-diff --git a/crates/node/src/persist/android_file_lock.rs b/crates/node/src/persist/android_file_lock.rs
++pub mod android_file_lock;
+ pub mod invariants;
+ pub mod log;
+ pub mod requests;
+diff --git a/crates/core/src/android_file_lock.rs b/crates/core/src/android_file_lock.rs
 new file mode 100644
 --- /dev/null
-+++ b/crates/node/src/persist/android_file_lock.rs
++++ b/crates/core/src/android_file_lock.rs
 @@ -0,0 +1,80 @@
 +//! Android's libc supports flock even on Rust versions where File::try_lock
 +//! returns Unsupported. Keep the descriptor open for the lock's lifetime.
@@ -53,7 +27,7 @@ new file mode 100644
 +    fn flock(fd: c_int, operation: c_int) -> c_int;
 +}
 +
-+pub(super) fn try_lock_exclusive(file: &File) -> io::Result<()> {
++pub fn try_lock_exclusive(file: &File) -> io::Result<()> {
 +    loop {
 +        // SAFETY: File owns a live descriptor; flock neither takes ownership
 +        // nor accesses a Rust pointer. LOCK_NB makes contention non-blocking.
@@ -121,3 +95,53 @@ new file mode 100644
 +        }
 +    }
 +}
+diff --git a/crates/node/src/persist/fs_backend.rs b/crates/node/src/persist/fs_backend.rs
+--- a/crates/node/src/persist/fs_backend.rs
++++ b/crates/node/src/persist/fs_backend.rs
+@@ -12,6 +12,9 @@
+ };
+ 
+ use mina_core::ChainId;
++
++#[cfg(target_os = "android")]
++use mina_core::android_file_lock;
+ 
+ use super::{
+     backend::{
+@@ -85,14 +88,20 @@
+             .read(true)
+             .write(true)
+             .open(self.path(LOCK_FILE)?)?;
+-        match file.try_lock() {
++        #[cfg(target_os = "android")]
++        let result = android_file_lock::try_lock_exclusive(&file);
++        #[cfg(not(target_os = "android"))]
++        let result = match file.try_lock() {
+             Ok(()) => {
+-                self.lock = Some(file);
+                 Ok(())
+             }
+             Err(fs::TryLockError::WouldBlock) => Err(io::ErrorKind::WouldBlock.into()),
+             Err(fs::TryLockError::Error(error)) => Err(error),
+-        }
++        };
++        result?;
++        // Closing this descriptor releases the lock, including on process exit.
++        self.lock = Some(file);
++        Ok(())
+     }
+ 
+     fn list(&mut self) -> io::Result<Vec<String>> {
+diff --git a/crates/ledger/src/database/disk.rs b/crates/ledger/src/database/disk.rs
+--- a/crates/ledger/src/database/disk.rs
++++ b/crates/ledger/src/database/disk.rs
+@@ -196,6 +196,9 @@
+         options.custom_flags(libc::O_NOFOLLOW);
+     }
+     let lock = options.open(dir.join("LOCK"))?;
++    #[cfg(target_os = "android")]
++    mina_core::android_file_lock::try_lock_exclusive(&lock)?;
++    #[cfg(not(target_os = "android"))]
+     match lock.try_lock() {
+         Ok(()) => {}
+         Err(std::fs::TryLockError::WouldBlock) => {
