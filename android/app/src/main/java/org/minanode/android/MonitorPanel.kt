@@ -42,34 +42,18 @@ import java.util.Locale
 private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
-fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String) {
+fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean) {
     var window by remember { mutableStateOf(ChartWindow()) }
     var autoscale by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<ProducedBlock?>(null) }
     val lastPage = BlockPages.count(state.blocks.size) - 1
     LaunchedEffect(lastPage) { page = page.coerceAtMost(lastPage) }
-    selected?.let { old -> BlockDetail(state.blocks.firstOrNull { it.id == old.id } ?: old, state, network, explorer, autoscale) { selected = null } }
+    selected?.let { old -> BlockDetail(state.blocks.firstOrNull { it.id == old.id } ?: old, state, network, explorer, autoscale, running) { selected = null } }
     val bounds = state.samples.let { if (it.isEmpty()) 0L..0L else window.bounds(it.first().timeMs, it.last().timeMs) }
     val visible = state.samples.filter { it.timeMs in bounds }
-    val currentSamples by rememberUpdatedState(state.samples)
-    val gestures = Modifier.pointerInput(Unit) {
-        awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false)
-            var horizontal = 0f; var vertical = 0f; var claimed = false
-            do {
-                val event = awaitPointerEvent()
-                val pan = event.calculatePan()
-                horizontal += pan.x; vertical += pan.y
-                if (event.changes.count { it.pressed } >= 2 ||
-                    (!claimed && kotlin.math.abs(horizontal) > viewConfiguration.touchSlop && kotlin.math.abs(horizontal) > kotlin.math.abs(vertical))) claimed = true
-                if (claimed && currentSamples.size > 1 && event.changes.any { it.pressed }) {
-                    window = window.transform(currentSamples.first().timeMs, currentSamples.last().timeMs,
-                        event.calculateZoom(), pan.x / size.width.coerceAtLeast(1), event.calculateCentroid().x / size.width.coerceAtLeast(1))
-                    event.changes.forEach { it.consume() }
-                }
-            } while (event.changes.any { it.pressed })
-        }
+    val gestures = chartGestures { zoom, pan, anchor ->
+        if (state.samples.size > 1) window = window.transform(state.samples.first().timeMs, state.samples.last().timeMs, zoom, pan, anchor)
     }
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
@@ -292,18 +276,27 @@ private fun BlockBars(blocks: List<ProducedBlock>, timings: Boolean) {
 }
 
 @Composable
-private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: String, explorer: String, autoscale: Boolean, onClose: () -> Unit) {
+private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: String, explorer: String, autoscale: Boolean, running: Boolean, onClose: () -> Unit) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
     fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
     val begin = block.proofStartMs ?: block.producedMs ?: block.slotTimeMs
     val end = block.discardedMs ?: block.committedMs ?: block.proofEndMs ?: block.producedMs ?: begin
     val bounds = begin?.let { (it - 5000)..((end ?: it) + 5000) }
-    val samples = state.samples.filter { bounds != null && it.timeMs in bounds }
+    var detailWindow by remember(block.id) { mutableStateOf(ChartWindow()) }
+    val viewport = bounds?.let { detailWindow.bounds(it.first, it.last) }
+    val samples = state.samples.filter { viewport != null && it.timeMs in viewport }
+    val gestures = chartGestures { zoom, pan, anchor ->
+        bounds?.let { detailWindow = detailWindow.transform(it.first, it.last, zoom, pan, anchor) }
+    }
     val markers = listOfNotNull(block.proofStartMs, block.proofEndMs, block.committedMs, block.discardedMs)
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("MINA / ANDROID", Modifier.weight(1f), maxLines = 1, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    SlotIndicator(state, running)
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(stringResource(R.string.block_detail), style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
@@ -318,13 +311,36 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
                     ExplorerButton(block, network, explorer)
                     Text(stringResource(R.string.sampled_peaks, samples.size, n(samples.mapNotNull { it.cpu }.maxOrNull()), n(samples.mapNotNull { it.ramMiB }.maxOrNull()), stringResource(R.string.unit_mib)))
                     Text(stringResource(R.string.detail_samples_help), style = MaterialTheme.typography.bodySmall)
-                    SignalChart(stringResource(R.string.ram_chart, stringResource(R.string.unit_mib)), samples, Color(0xFF29B6B8),
-                        fixedMaximum = if (autoscale) null else state.ramCapacityMiB, bounds = bounds, markers = markers) { it.ramMiB }
-                    SignalChart(stringResource(R.string.cpu_chart), samples, Color(0xFFC99B10),
-                        fixedMaximum = if (autoscale) null else state.cpuCapacity, bounds = bounds, markers = markers) { it.cpu }
+                    TextButton(onClick = { detailWindow = ChartWindow() }) { Text(stringResource(R.string.reset_zoom)) }
+                    SignalChart(stringResource(R.string.ram_chart, stringResource(R.string.unit_mib)), samples, Color(0xFF29B6B8), gestures,
+                        fixedMaximum = if (autoscale) null else state.ramCapacityMiB, bounds = viewport, markers = markers) { it.ramMiB }
+                    SignalChart(stringResource(R.string.cpu_chart), samples, Color(0xFFC99B10), gestures,
+                        fixedMaximum = if (autoscale) null else state.cpuCapacity, bounds = viewport, markers = markers) { it.cpu }
                     Text(stringResource(R.string.detail_markers), style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun chartGestures(onTransform: (Float, Float, Float) -> Unit): Modifier {
+    val transform by rememberUpdatedState(onTransform)
+    return Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            var horizontal = 0f; var vertical = 0f; var claimed = false
+            do {
+                val event = awaitPointerEvent()
+                val pan = event.calculatePan()
+                horizontal += pan.x; vertical += pan.y
+                if (event.changes.count { it.pressed } >= 2 ||
+                    (!claimed && kotlin.math.abs(horizontal) > viewConfiguration.touchSlop && kotlin.math.abs(horizontal) > kotlin.math.abs(vertical))) claimed = true
+                if (claimed && event.changes.any { it.pressed }) {
+                    transform(event.calculateZoom(), pan.x / size.width.coerceAtLeast(1), event.calculateCentroid().x / size.width.coerceAtLeast(1))
+                    event.changes.forEach { it.consume() }
+                }
+            } while (event.changes.any { it.pressed })
         }
     }
 }

@@ -96,8 +96,8 @@
     <string name="production">Production</string>
     <string name="next_slot">Prochain slot gagné : %1$s · dans %2$s s</string>
     <string name="no_next_slot">Aucun prochain slot gagné annoncé</string>
-    <string name="production_totals">%1$s canoniques · %2$s orphelins · %3$s blocs suivis</string>
-    <string name="production_history_help">Historique limité aux 500 derniers blocs connus. Toucher un bloc pour ses détails.</string>
+    <string name="production_totals">%1$s canoniques · %2$s orphelins · %3$s tentatives suivies</string>
+    <string name="production_history_help">Historique limité aux 500 dernières tentatives de production connues. Toucher un bloc pour ses détails.</string>
     <string name="block_heading">#%1$s · slot %2$s · %3$s</string>
     <string name="block_metrics">TX %1$s · zkApps %2$s · preuve %3$s s</string>
     <string name="block_timing">Préparation %1$s ms · publication %2$s s</string>
@@ -215,4 +215,5 @@
     <string name="detail_markers">Repères verticaux : début/fin de preuve, validation locale ou abandon, si disponibles.</string>
     <string name="save">Enregistrer</string>
     <string name="open_navigation">Ouvrir le menu de navigation</string>
+<string name="reset_zoom">Réinitialiser le zoom</string>
 </resources>

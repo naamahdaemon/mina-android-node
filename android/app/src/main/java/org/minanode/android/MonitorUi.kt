@@ -81,21 +81,26 @@ fun SlotIndicator(state: MonitorState, enabled: Boolean) {
 }
 
 /** A real-time viewport, shared by RAM/CPU. Offset zero follows the newest sample. */
-data class ChartWindow(val spanMs: Long = 0, val offsetMs: Long = 0) {
+data class ChartWindow(val spanMs: Long = 0, val offsetMs: Long = 0, val endTimeMs: Long? = null) {
     fun bounds(first: Long, last: Long): LongRange {
+        if (last <= first) return first..first
         val available = (last - first).coerceAtLeast(1)
         val span = if (spanMs == 0L) available else spanMs.coerceIn(minOf(5000, available), available)
-        val end = last - offsetMs.coerceIn(0, (available - span).coerceAtLeast(0))
+        val end = (endTimeMs ?: (last - offsetMs.coerceIn(0, (available - span).coerceAtLeast(0)))).coerceIn(first, last)
+            .coerceAtLeast(first + span).coerceAtMost(last)
         return (end - span).coerceAtLeast(first)..end
     }
     fun transform(first: Long, last: Long, zoom: Float, panFraction: Float, anchor: Float): ChartWindow {
+        if (last <= first || !zoom.isFinite() || !panFraction.isFinite() || !anchor.isFinite()) return this
         val old = bounds(first, last)
         val available = (last - first).coerceAtLeast(1)
-        val span = ((old.last - old.first) / zoom.coerceIn(0.1f, 10f)).toLong().coerceIn(minOf(5000, available), available)
-        val center = old.first + (old.last - old.first) * anchor.coerceIn(0f, 1f)
-        val end = (center + span * (1 - anchor.coerceIn(0f, 1f)) - panFraction * (old.last - old.first)).toLong()
+        val span = ((old.last - old.first).toDouble() / zoom.coerceIn(0.1f, 10f).toDouble()).toLong().coerceIn(minOf(5000, available), available)
+        // Absolute epoch milliseconds must stay Double/Long, never Float (minutes of rounding at today's dates).
+        val position = anchor.coerceIn(0f, 1f).toDouble()
+        val center = old.first.toDouble() + (old.last - old.first).toDouble() * position
+        val end = (center + span.toDouble() * (1.0 - position) - panFraction.toDouble() * (old.last - old.first)).toLong()
             .coerceIn(first + span, last.coerceAtLeast(first + span))
-        return ChartWindow(span, last - end)
+        return ChartWindow(span, last - end, end.takeIf { it < last })
     }
 }
 

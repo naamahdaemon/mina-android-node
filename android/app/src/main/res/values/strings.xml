@@ -96,8 +96,8 @@
     <string name="production">Block production</string>
     <string name="next_slot">Next won slot: %1$s · in %2$s s</string>
     <string name="no_next_slot">No upcoming won slot announced</string>
-    <string name="production_totals">%1$s canonical · %2$s orphaned · %3$s tracked blocks</string>
-    <string name="production_history_help">History is limited to the latest 500 known blocks. Tap a block for details.</string>
+    <string name="production_totals">%1$s canonical · %2$s orphaned · %3$s tracked attempts</string>
+    <string name="production_history_help">History is limited to the latest 500 known production attempts. Tap a block for details.</string>
     <string name="block_heading">#%1$s · slot %2$s · %3$s</string>
     <string name="block_metrics">TX %1$s · zkApps %2$s · proof %3$s s</string>
     <string name="block_timing">Preparation %1$s ms · publication %2$s s</string>
@@ -215,4 +215,5 @@
     <string name="detail_markers">Vertical markers: proof start/end, commit or discard, when available.</string>
     <string name="save">Save</string>
     <string name="open_navigation">Open navigation menu</string>
+<string name="reset_zoom">Reset zoom</string>
 </resources>

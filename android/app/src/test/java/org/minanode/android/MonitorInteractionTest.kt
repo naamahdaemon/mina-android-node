@@ -18,9 +18,17 @@ class MonitorInteractionTest {
         assertEquals(10000L..110000L, initial.bounds(10000, 110000))
         val zoom = initial.transform(10000, 110000, 2f, 0f, 0.5f)
         assertEquals(35000L..85000L, zoom.bounds(10000, 110000))
+        assertEquals(35000L..85000L, zoom.bounds(10000, 120000))
         assertEquals(10000L..60000L, zoom.transform(10000, 110000, 1f, 100f, 0.5f).bounds(10000, 110000))
         assertEquals(60000L..110000L, zoom.transform(10000, 110000, 1f, -100f, 0.5f).bounds(10000, 110000))
         assertEquals(60000L..120000L, ChartWindow(60000).bounds(10000, 120000))
+    }
+    @Test fun zoomPreservesMillisecondPrecisionAtRealEpochDates() {
+        val first = 1790000000000L
+        val zoom = ChartWindow().transform(first, first + 100000, 2f, 0f, 0.5f)
+        assertEquals((first + 25000)..(first + 75000), zoom.bounds(first, first + 100000))
+        assertEquals((first + 25000)..(first + 75000), zoom.bounds(first, first + 110000))
+        assertEquals(first..first, ChartWindow().bounds(first, first))
     }
     @Test fun zoomFitsShortRecordingsAndClampsWhenHistoryExpires() {
         assertEquals(1000L..2000L, ChartWindow(60000, 999999).bounds(1000, 2000))

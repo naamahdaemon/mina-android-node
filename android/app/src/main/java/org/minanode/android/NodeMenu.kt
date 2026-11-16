@@ -1,6 +1,10 @@
 package org.minanode.android
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +39,9 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                 } }) { Text("‹", fontSize = 32.sp) }
             Row(Modifier.weight(1f).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NodePage.entries.forEach { page ->
-                    FilterChip(selected == page, { onSelect(page) }, label = { Text(stringResource(page.title)) })
+                    val requester = remember(page) { BringIntoViewRequester() }
+                    LaunchedEffect(selected) { if (selected == page) requester.bringIntoView() }
+                    FilterChip(selected == page, { onSelect(page) }, modifier = Modifier.bringIntoViewRequester(requester), label = { Text(stringResource(page.title)) })
                 }
             }
             IconButton(enabled = scroll.canScrollForward,

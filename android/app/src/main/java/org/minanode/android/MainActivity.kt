@@ -124,14 +124,14 @@ class MainActivity : ComponentActivity() {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 if (hamburger) Box {
-                                    TextButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
+                                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
                                     DropdownMenu(menuOpen, { menuOpen = false }) {
                                         NodePage.entries.forEach { target ->
                                             DropdownMenuItem(text = { Text(stringResource(target.title)) }, onClick = { select(target) })
                                         }
                                     }
                                 }
-                                Text("MINA / ANDROID", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
+                                Text("MINA / ANDROID", Modifier.weight(1f), maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary)
                                 SlotIndicator(state.monitor, active && profile.producer)
                             }
@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })
                         if (current == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
-                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer())
+                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer(), active)
                         if (current == NodePage.NODE) {
                         Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
                         Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
