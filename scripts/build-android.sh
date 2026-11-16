@@ -30,6 +30,8 @@ export ANDROID_NDK_HOME="$ndk"
 export ANDROID_NDK_ROOT="$ndk"
 mkdir -p logs dist target
 python3 scripts/prepare-source.py 2>&1 | tee logs/prepare.log
+python3 -m unittest discover -s tests -p test_patches.py -v \
+  2>&1 | tee logs/patch-tests.log
 cargo +"$toolchain" test --manifest-path tests/credentials/Cargo.toml \
   2>&1 | tee logs/credential-tests.log
 # Test the exact Android flock implementation on Linux without building a

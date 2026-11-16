@@ -10,6 +10,7 @@ on:
       - scripts/build-android.sh
       - scripts/prepare-source.py
       - tests/android-file-lock.rs
+      - tests/test_patches.py
       - tests/credentials/**
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - scripts/build-android.sh
       - scripts/prepare-source.py
       - tests/android-file-lock.rs
+      - tests/test_patches.py
       - tests/credentials/**
 
 permissions:

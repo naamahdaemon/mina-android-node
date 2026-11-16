@@ -7,6 +7,7 @@ test('mixed changes route to the full build, app-only changes do not', () => {
   assert.equal(['android/app/src/main/AndroidManifest.xml', 'patches/fix.patch'].some(isNativeInput), true);
   assert.equal(['android/app/build.gradle.kts', 'scripts/build-apk.sh'].some(isNativeInput), false);
   assert.equal(isNativeInput('tests/android-file-lock.rs'), true);
+  assert.equal(isNativeInput('tests/test_patches.py'), true);
   assert.equal(isNativeInput('upstream.json'), true);
 });
 
