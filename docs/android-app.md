@@ -1,0 +1,76 @@
+# Application Android — prototype devnet
+
+Le workflow **Android native prototype** construit le binaire Rust avec ses
+patches Android, puis l'application Kotlin/Jetpack Compose. L'artifact
+**mina-android-devnet-apk** contient `mina-android-devnet-debug.apk` et
+`APK-SHA256SUMS`. Le build exécute les tests du verrou, les tests du superviseur,
+les tests unitaires Kotlin et Android Lint avant de fournir l'APK.
+
+## Premier essai sur Xiaomi 14T Pro / Android 16
+
+1. Télécharger l'artifact, extraire le ZIP puis ouvrir l'APK sur le téléphone.
+   Autoriser l'installation depuis le navigateur ou le gestionnaire de fichiers
+   si Android le demande. Ce paquet de test cible Android 13+ et ARM64.
+2. Arrêter le nœud Termux pour ce premier essai et désactiver le VPN.
+   Ouvrir **Mina Node**, autoriser les notifications et choisir **Démarrer**.
+3. Observer la synchronisation, la hauteur, les pairs et le journal. La première
+   synchronisation utilise le stockage privé de l'application, séparé de Termux.
+4. Choisir **Arrêter**, attendre **Nœud arrêté**, puis **Démarrer** pour vérifier
+   la restauration du frontier store.
+5. Fermer l'écran de l'application et vérifier que la notification reste visible.
+   Tester ensuite plusieurs minutes écran éteint. Le bouton **Exporter** enregistre
+   les journaux via le sélecteur de fichiers Android.
+
+La notification permet aussi d'arrêter le nœud. Le service maintient un verrou CPU
+pendant l'exécution. Les réglages d'économie de batterie du téléphone peuvent
+néanmoins limiter ou arrêter le service. Aucun démarrage au boot n'est prévu.
+La présence d'un VPN est affichée, compte tenu du ralentissement observé en test.
+
+L'API écoute uniquement sur `127.0.0.1:4300`, et libp2p utilise le port 8303,
+différents des ports Termux utilisés
+pendant les premiers essais. Aucun producteur de blocs ou portefeuille n'est
+configuré. Les délais RPC et l'intervalle de checkpoint restent ceux du moteur
+upstream pour ce premier essai sans VPN. Les logs console sont limités à deux
+fichiers d'environ 4 Mio chacun; les données de chaîne restent persistantes.
+
+## Cycle de vie natif
+
+L'exécutable Rust est emballé sous `lib/arm64-v8a/libmina.so` et extrait par
+l'installateur Android dans `nativeLibraryDir`. Il est exécuté directement,
+sans `dlopen`, shell ou Termux. Le packaging natif traditionnel est activé et
+l'alignement ELF est de 16 Kio. Les licences et notices upstream sont incluses
+dans les assets de l'APK.
+
+Un petit superviseur natif reçoit une commande d'arrêt par un pipe privé, envoie
+SIGINT au nœud et attend sa sortie jusqu'à 90 secondes, puis impose un arrêt.
+La fermeture du pipe quand l'application meurt déclenche le même chemin. Le
+processus Rust porte un signal de mort du superviseur pour éviter un nœud orphelin.
+Le verrou du frontier store protège aussi contre une seconde ouverture.
+
+Le service utilise le type Android `specialUse`, décrit dans le manifeste pour
+cette exécution continue et explicitement demandée par l'utilisateur. Une
+publication Play Store nécessitera sa propre validation; cette CI fournit un APK
+de test installable directement.
+
+Références : [types de services au premier plan](https://developer.android.com/develop/background-work/services/fgs/service-types),
+[restrictions sur les exécutables](https://developer.android.com/about/versions/10/behavior-changes-10#execute-permission),
+[AGP 8.10 et SDK 36](https://developer.android.com/build/releases/agp-8-10-0-release-notes).
+
+## Build et mises à jour
+
+Versions : AGP 8.10.1, Gradle 8.11.1, JDK 17, Kotlin 2.1.21, SDK/target 36.
+Gradle est installé par `gradle/actions/setup-gradle` dans GitHub Actions; la
+compilation locale n'est pas nécessaire. Android Studio peut ouvrir `android/`.
+
+La clé de signature de debug est conservée dans le cache GitHub Actions pour
+permettre les mises à jour. Ce cache peut être évincé : une clé de signature
+durable devra être configurée avant de dépendre des mises à jour pour conserver
+les données. Ne pas désinstaller l'application pour contourner une incompatibilité
+de signature sans accepter de perdre son stockage privé.
+
+## Validation restante
+
+Le premier APK doit encore être validé sur appareil : extraction et exécution
+des binaires, autorisation de service, synchronisation, arrêt, restauration,
+notification et fonctionnement écran éteint. Un build CI vert ne valide pas ces
+comportements Android à lui seul.

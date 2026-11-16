@@ -40,6 +40,30 @@ jobs:
           restore-keys: android-arm64-${{ runner.os }}-
       - name: Build Android ARM64 binary
         run: bash scripts/build-android.sh
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Install Android application SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Keep the test APK signing identity across builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mina-android-devnet-debug-signing-v1
+      - name: Build and test Android application
+        run: bash scripts/build-apk.sh
+      - name: Upload Android test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mina-android-devnet-apk
+          path: |
+            dist/mina-android-devnet-debug.apk
+            dist/APK-SHA256SUMS
+          if-no-files-found: error
       - name: Upload Termux package
         uses: actions/upload-artifact@v4
         with:

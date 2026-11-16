@@ -12,6 +12,11 @@ Android `27.3.13750724`, Rust `1.92.0` et la cible `aarch64-linux-android`.
 Il démarre sur les pushes de code et peut être lancé avec **Run workflow**.
 Aucune compilation locale n'est nécessaire.
 
+La CI construit aussi un premier APK **Mina Node** pour Android ARM64 : démarrage
+et arrêt du nœud, notification persistante, statut et export des logs.
+Télécharger l'artifact `mina-android-devnet-apk` du build réussi.
+Voir [le guide de l'application Android](docs/android-app.md).
+
 `upstream.json` fige les versions. `scripts/prepare-source.py` prépare les
 sources et applique `patches/*.patch`. Les adaptations Windows ne sont pas
 appliquées au port Android. Le frontend historique est exclu du checkout
