@@ -12,7 +12,7 @@
     <string name="settings">Settings</string>
     <string name="monitor">Monitor</string>
     <string name="journal">Logs</string>
-    <string name="dashboard">Dashboard ↗</string>
+    <string name="dashboard">Dashboard</string>
     <string name="android_settings">Android settings ↗</string>
     <string name="menu_previous">Show previous menu items</string>
     <string name="menu_next">Show next menu items</string>
@@ -181,4 +181,38 @@
     <string name="dashboard_open_error">Could not open the dashboard (%1$s). Details are in the Logs tab.</string>
     <string name="retry">Retry</string>
     <string name="back_to_node">Back to node</string>
+    <string name="hamburger_menu">Use hamburger navigation</string>
+    <string name="explorer">Block explorer</string>
+    <string name="custom_explorer">Custom</string>
+    <string name="explorer_template">HTTPS block URL template</string>
+    <string name="explorer_help">Include {hash}; {network} is replaced with mainnet or devnet.</string>
+    <string name="explorer_saved">Explorer saved</string>
+    <string name="header_slot">Next slot %1$s</string>
+    <string name="header_no_slot">Next slot —</string>
+    <string name="autoscale">Autoscale</string>
+    <string name="maximum_scale">Maximum scale (device capacity)</string>
+    <string name="chart_live">Live / reset</string>
+    <string name="chart_gestures">Pinch to zoom time. Drag horizontally to browse. Maximum scale uses device RAM and CPU capacity.</string>
+    <string name="previous_page">Previous</string>
+    <string name="next_page">Next</string>
+    <string name="block_page">%1$d / %2$d</string>
+    <string name="no_block_hash">Block hash unavailable</string>
+    <string name="open_explorer">Open in explorer ↗</string>
+    <string name="block_timings_chart">Block timings (seconds)</string>
+    <string name="block_transactions_chart">Transactions per block</string>
+    <string name="preparation_seconds">Prep (s)</string>
+    <string name="proof_seconds">Proof (s)</string>
+    <string name="delay_seconds">Delay (s)</string>
+    <string name="ordinary_transactions">Payments + delegations</string>
+    <string name="zkapps">zkApps</string>
+    <string name="no_production_history">No production attempts yet.</string>
+    <string name="block_chart_help">Swipe the plot horizontally. X: block height (s = slot without a block). Missing measurements stay empty; timing totals may be partial.</string>
+    <string name="block_detail">Block details</string>
+    <string name="close">Close</string>
+    <string name="completed_snarks">Completed SNARK works: %1$s</string>
+    <string name="discard_reason">Discard reason: %1$s</string>
+    <string name="detail_samples_help">Measurements retained for six hours during this run. Older events or events before restart may have no resource samples.</string>
+    <string name="detail_markers">Vertical markers: proof start/end, commit or discard, when available.</string>
+    <string name="save">Save</string>
+    <string name="open_navigation">Open navigation menu</string>
 </resources>

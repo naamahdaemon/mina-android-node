@@ -205,3 +205,24 @@ Valider maintenant les profils, le dashboard, l'import chiffré, le mot de passe
 incorrect puis correct et la production **sur devnet**, avant un essai mainnet.
 Vérifier l'arrêt avec worker, la restauration, la batterie et le fonctionnement
 écran éteint. Un build CI vert ne valide pas ces comportements à lui seul.
+
+Navigation remains visible beneath MINA / ANDROID, with Node, Monitor, Dashboard,
+Settings and Logs in that order. Settings can switch to a hamburger menu and
+configure an HTTPS explorer URL template (`{hash}` required, `{network}` optional).
+Minascan is the default. Dashboard is hosted below the same fixed header; Android
+application settings are available within Settings. Swipe between pages, except
+when a graph consumes the gesture to browse its data.
+
+The fixed header shows the next announced won slot and a one-second countdown.
+The progress bar covers the final hour; it turns amber below five minutes and red
+below one minute. Past schedules and stopped nodes do not show stale countdowns.
+
+Monitor charts support pinch time zoom, horizontal history panning and a live/reset
+button. Autoscale uses the visible samples; maximum scale uses physical device RAM
+and logical CPU capacity (100% per core). Block plots scroll horizontally and show
+ordinary transactions separately from zkApps, and prep/proof/delay in seconds.
+Production attempts are paginated five per page. Tap an attempt for resource charts
+around proof/commit/discard, available metrics, discard reason and a hash-based
+explorer link. Resource history covers this run's last six hours; missing samples
+or timings are not reconstructed. Raw public attempt history survives restarts.
+Logs use a selectable, bounded text area with internal vertical scrolling.

@@ -2,6 +2,22 @@ package org.minanode.android
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.Alignment
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +42,35 @@ import java.util.Locale
 private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
-fun MonitorPanel(state: MonitorState, producer: Boolean) {
+fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String) {
+    var window by remember { mutableStateOf(ChartWindow()) }
+    var autoscale by rememberSaveable { mutableStateOf(true) }
+    var page by rememberSaveable { mutableIntStateOf(0) }
+    var selected by remember { mutableStateOf<ProducedBlock?>(null) }
+    val lastPage = BlockPages.count(state.blocks.size) - 1
+    LaunchedEffect(lastPage) { page = page.coerceAtMost(lastPage) }
+    selected?.let { old -> BlockDetail(state.blocks.firstOrNull { it.id == old.id } ?: old, state, network, explorer, autoscale) { selected = null } }
+    val bounds = state.samples.let { if (it.isEmpty()) 0L..0L else window.bounds(it.first().timeMs, it.last().timeMs) }
+    val visible = state.samples.filter { it.timeMs in bounds }
+    val currentSamples by rememberUpdatedState(state.samples)
+    val gestures = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            var horizontal = 0f; var vertical = 0f; var claimed = false
+            do {
+                val event = awaitPointerEvent()
+                val pan = event.calculatePan()
+                horizontal += pan.x; vertical += pan.y
+                if (event.changes.count { it.pressed } >= 2 ||
+                    (!claimed && kotlin.math.abs(horizontal) > viewConfiguration.touchSlop && kotlin.math.abs(horizontal) > kotlin.math.abs(vertical))) claimed = true
+                if (claimed && currentSamples.size > 1 && event.changes.any { it.pressed }) {
+                    window = window.transform(currentSamples.first().timeMs, currentSamples.last().timeMs,
+                        event.calculateZoom(), pan.x / size.width.coerceAtLeast(1), event.calculateCentroid().x / size.width.coerceAtLeast(1))
+                    event.changes.forEach { it.consume() }
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
     fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
@@ -36,8 +80,16 @@ fun MonitorPanel(state: MonitorState, producer: Boolean) {
     Text(stringResource(R.string.resources), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.resource_current, n(latest?.ramMiB), mib, n(latest?.cpu)))
     Text(stringResource(R.string.cpu_help), style = MaterialTheme.typography.bodySmall)
-    SignalChart(stringResource(R.string.ram_chart, mib), state.samples, if (LocalDarkTheme.current) Color(0xFF53D9DB) else Color(0xFF00696D)) { it.ramMiB }
-    SignalChart(stringResource(R.string.cpu_chart), state.samples, if (LocalDarkTheme.current) Color(0xFFFFD75A) else Color(0xFF806000)) { it.cpu }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(if (autoscale) R.string.autoscale else R.string.maximum_scale), Modifier.weight(1f))
+        Switch(autoscale, { autoscale = it })
+        TextButton(onClick = { window = ChartWindow() }) { Text(stringResource(R.string.chart_live)) }
+    }
+    Text(stringResource(R.string.chart_gestures), style = MaterialTheme.typography.bodySmall)
+    SignalChart(stringResource(R.string.ram_chart, mib), visible, if (LocalDarkTheme.current) Color(0xFF53D9DB) else Color(0xFF00696D), gestures,
+        if (autoscale) null else state.ramCapacityMiB, bounds) { it.ramMiB }
+    SignalChart(stringResource(R.string.cpu_chart), visible, if (LocalDarkTheme.current) Color(0xFFFFD75A) else Color(0xFF806000), gestures,
+        if (autoscale) null else state.cpuCapacity, bounds) { it.cpu }
     Text(stringResource(R.string.storage_current, n(state.usedMiB), mib, n(state.freeGiB), gib))
     Text(stringResource(R.string.battery_current, state.battery?.toString() ?: "—", if (state.charging) stringResource(R.string.charging) else "", n(state.temperature)))
     if (state.thermal >= 3) Text(stringResource(R.string.thermal_warning), color = MaterialTheme.colorScheme.error)
@@ -48,18 +100,21 @@ fun MonitorPanel(state: MonitorState, producer: Boolean) {
         Text(stringResource(R.string.production_totals, state.blocks.count { it.status == "Canonical" }, state.blocks.count { it.status == "Orphaned" }, state.blocks.size))
         state.producerError?.let { Text(it.resolve(context), color = MaterialTheme.colorScheme.error) }
         Text(stringResource(R.string.production_history_help), style = MaterialTheme.typography.bodySmall)
-        state.blocks.take(50).forEach { block ->
-            var expanded by remember(block.hash) { mutableStateOf(false) }
-            Card(Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
+        BlockBars(state.blocks, timings = false)
+        BlockBars(state.blocks, timings = true)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            TextButton(enabled = page > 0, onClick = { page-- }) { Text(stringResource(R.string.previous_page)) }
+            Text(stringResource(R.string.block_page, page.coerceAtMost(lastPage) + 1, lastPage + 1))
+            TextButton(enabled = page < lastPage, onClick = { page++ }) { Text(stringResource(R.string.next_page)) }
+        }
+        BlockPages.items(state.blocks, page).forEach { block ->
+            val color = blockColor(block.status)
+            Card(Modifier.fillMaxWidth().clickable { selected = block }, colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f))) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.block_heading, block.height ?: "—", block.slot, productionStatus(context, block.status)), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.block_heading, block.height ?: "—", block.slot, productionStatus(context, block.status)),
+                        color = color, style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.block_metrics, block.tx, block.zkapps, n(block.proofSeconds, 3)))
-                    if (expanded) {
-                        Text(stringResource(R.string.block_timing, n(block.prepMs), n(block.delaySeconds, 3)))
-                        val samples = state.samples.filter { sample -> block.proofStartMs != null && block.proofEndMs != null && sample.timeMs in block.proofStartMs..block.proofEndMs }
-                        Text(stringResource(R.string.sampled_peaks, samples.size, n(samples.mapNotNull { it.cpu }.maxOrNull()), n(samples.mapNotNull { it.ramMiB }.maxOrNull()), mib))
-                        Text(block.hash, style = MaterialTheme.typography.bodySmall)
-                    }
+                    ExplorerButton(block, network, explorer)
                 }
             }
         }
@@ -67,7 +122,8 @@ fun MonitorPanel(state: MonitorState, producer: Boolean) {
 }
 
 @Composable
-private fun SignalChart(title: String, samples: List<ResourceSample>, color: Color, valueOf: (ResourceSample) -> Double?) {
+private fun SignalChart(title: String, samples: List<ResourceSample>, color: Color, modifier: Modifier = Modifier,
+    fixedMaximum: Double? = null, bounds: LongRange? = null, markers: List<Long> = emptyList(), valueOf: (ResourceSample) -> Double?) {
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
     fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
     Text(title, style = MaterialTheme.typography.labelMedium)
@@ -76,9 +132,9 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
         Text(stringResource(R.string.waiting_measurements), style = MaterialTheme.typography.bodySmall)
         return
     }
-    val maximum = ResourceChartScale.maximum(values)
-    val start = samples.first().timeMs
-    val end = samples.last().timeMs
+    val maximum = fixedMaximum?.takeIf { it.isFinite() && it > 0 } ?: ResourceChartScale.maximum(values)
+    val start = bounds?.first ?: samples.first().timeMs
+    val end = bounds?.last ?: samples.last().timeMs
     val formatter = remember(locale) { DateTimeFormatter.ofPattern("HH:mm:ss", locale).withZone(ZoneId.systemDefault()) }
     val description = stringResource(R.string.chart_description, title, n(maximum), formatter.format(Instant.ofEpochMilli(start)), formatter.format(Instant.ofEpochMilli(end)))
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -91,7 +147,7 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
     val reduced = samples.chunked(maxOf(1, (samples.size + 239) / 240)).map { bucket ->
         bucket.filter { valueOf(it)?.isFinite() == true }.maxByOrNull { valueOf(it)!! } ?: bucket.first()
     }
-    Canvas(Modifier.fillMaxWidth().height(160.dp).semantics {
+    Canvas(modifier.fillMaxWidth().height(180.dp).semantics {
         contentDescription = description
     }) {
         paint.textSize = 11.sp.toPx()
@@ -127,12 +183,17 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
             }
             native.drawText(formatter.format(Instant.ofEpochMilli(time)), x, size.height - paint.fontMetrics.descent, paint)
         }
+        markers.filter { it in start..end }.forEach { time ->
+            val x = left + ResourceChartScale.timeFraction(time, start, end) * (right - left)
+            drawLine(color.copy(alpha = 0.5f), Offset(x, top), Offset(x, bottom), 1.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())))
+        }
         val path = Path(); var connected = false
         reduced.forEach { sample ->
             val value = valueOf(sample)?.takeIf { it.isFinite() }
             if (value == null) connected = false else {
                 val x = left + ResourceChartScale.timeFraction(sample.timeMs, start, end) * (right - left)
-                val y = bottom - (value / maximum * (bottom - top)).toFloat()
+                val y = bottom - (value / maximum * (bottom - top)).toFloat().coerceIn(0f, bottom - top)
                 if (connected) path.lineTo(x, y) else path.moveTo(x, y)
                 if (!connected) drawCircle(color, 2.dp.toPx(), Offset(x, y))
                 connected = true
@@ -141,4 +202,129 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
         drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
     }
     Text(stringResource(R.string.chart_axis_help), style = MaterialTheme.typography.bodySmall)
+}
+
+@Composable
+private fun blockColor(status: String): Color = when (status) {
+    "Canonical" -> if (LocalDarkTheme.current) Color(0xFF53D9BC) else Color(0xFF006A50)
+    "Orphaned", "Discarded", "Missed" -> MaterialTheme.colorScheme.error
+    else -> if (LocalDarkTheme.current) Color(0xFFFFD75A) else Color(0xFF805000)
+}
+
+@Composable
+private fun ExplorerButton(block: ProducedBlock, network: String, explorer: String) {
+    val context = LocalContext.current
+    val url = ExplorerLink.url(explorer, network, block.hash)
+    TextButton(enabled = url != null, onClick = {
+        url?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } }
+    }) { Text(stringResource(if (url == null) R.string.no_block_hash else R.string.open_explorer)) }
+}
+
+/** Each column is a block; scrolling these plots consumes the pager's horizontal gesture. */
+@Composable
+private fun BlockBars(blocks: List<ProducedBlock>, timings: Boolean) {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
+    val ordered = blocks.asReversed()
+    val cyan = if (LocalDarkTheme.current) Color(0xFF53D9DB) else Color(0xFF00696D)
+    val magenta = if (LocalDarkTheme.current) Color(0xFFF380E7) else Color(0xFF9F187E)
+    val yellow = if (LocalDarkTheme.current) Color(0xFFFFD75A) else Color(0xFF806000)
+    val green = if (LocalDarkTheme.current) Color(0xFF53D9BC) else Color(0xFF006A50)
+    val gray = MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val colors = if (timings) listOf(yellow, green, gray.copy(alpha = 0.65f)) else listOf(cyan, magenta)
+    val segments = ordered.map { b -> if (timings) listOf(b.prepMs?.div(1000), b.proofSeconds, b.delaySeconds)
+        else if (b.hash.isBlank()) listOf(null, null) else listOf((b.tx - b.zkapps).coerceAtLeast(0).toDouble(), b.zkapps.toDouble()) }
+    val maximum = ResourceChartScale.maximum(segments.map { values -> values.filterNotNull().takeIf { it.isNotEmpty() }?.sum() })
+    val statusColors = ordered.map { blockColor(it.status) }
+    Text(stringResource(if (timings) R.string.block_timings_chart else R.string.block_transactions_chart), style = MaterialTheme.typography.titleMedium)
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        val labels = if (timings) listOf(R.string.preparation_seconds, R.string.proof_seconds, R.string.delay_seconds)
+            else listOf(R.string.ordinary_transactions, R.string.zkapps)
+        labels.forEachIndexed { i, label -> Text(stringResource(label), color = colors[i], style = MaterialTheme.typography.labelSmall) }
+    }
+    if (blocks.isEmpty()) { Text(stringResource(R.string.no_production_history)); return }
+    val paint = remember(textColor) { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = textColor.toArgb(); typeface = android.graphics.Typeface.MONOSPACE
+    } }
+    val scroll = rememberScrollState()
+    var initial by remember { mutableStateOf(false) }
+    LaunchedEffect(scroll.maxValue) { if (!initial && scroll.maxValue > 0) { scroll.scrollTo(scroll.maxValue); initial = true } }
+    val description = stringResource(if (timings) R.string.block_timings_chart else R.string.block_transactions_chart)
+    Row(Modifier.fillMaxWidth()) {
+        // Keep the Y axis visible while the block columns scroll underneath the fingers.
+        Canvas(Modifier.width(48.dp).height(210.dp)) {
+            paint.textSize = 10.sp.toPx(); paint.textAlign = android.graphics.Paint.Align.RIGHT
+            (0..4).forEach { i ->
+                val y = 12.dp.toPx() + (1 - i / 4f) * 150.dp.toPx()
+                drawContext.canvas.nativeCanvas.drawText(String.format(locale, if (timings) "%.1f" else "%.0f", maximum * i / 4), size.width - 4.dp.toPx(), y, paint)
+            }
+        }
+        BoxWithConstraints(Modifier.weight(1f)) {
+            val width = maxOf(maxWidth, (ordered.size * 68).dp)
+            Canvas(Modifier.horizontalScroll(scroll).width(width).height(210.dp).semantics { contentDescription = description }) {
+                paint.textSize = 10.sp.toPx(); paint.textAlign = android.graphics.Paint.Align.CENTER
+                val column = size.width / ordered.size
+                val top = 12.dp.toPx(); val bottom = 162.dp.toPx()
+                (0..4).forEach { i ->
+                    val y = bottom - i / 4f * (bottom - top)
+                    drawLine(textColor.copy(alpha = 0.2f), Offset(0f, y), Offset(size.width, y))
+                }
+                ordered.forEachIndexed { index, block ->
+                    val x = column * (index + 0.5f)
+                    var base = bottom
+                    segments[index].forEachIndexed { part, value ->
+                        if (value != null) {
+                            val height = (value / maximum * (bottom - top)).toFloat()
+                            drawRect(colors[part], Offset(x - column * 0.33f, base - height), androidx.compose.ui.geometry.Size(column * 0.66f, height))
+                            base -= height
+                        }
+                    }
+                    paint.color = statusColors[index].toArgb()
+                    drawContext.canvas.nativeCanvas.drawText(block.height?.toString() ?: "s${block.slot}", x, 181.dp.toPx(), paint)
+                    paint.color = textColor.toArgb()
+                    val total = segments[index].filterNotNull().takeIf { it.isNotEmpty() }?.sum()
+                    drawContext.canvas.nativeCanvas.drawText(total?.let { String.format(locale, if (timings) "%.2f" else "%.0f", it) } ?: "—", x, 202.dp.toPx(), paint)
+                }
+            }
+        }
+    }
+    Text(stringResource(R.string.block_chart_help), style = MaterialTheme.typography.bodySmall)
+}
+
+@Composable
+private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: String, explorer: String, autoscale: Boolean, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
+    fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
+    val begin = block.proofStartMs ?: block.producedMs ?: block.slotTimeMs
+    val end = block.discardedMs ?: block.committedMs ?: block.proofEndMs ?: block.producedMs ?: begin
+    val bounds = begin?.let { (it - 5000)..((end ?: it) + 5000) }
+    val samples = state.samples.filter { bounds != null && it.timeMs in bounds }
+    val markers = listOfNotNull(block.proofStartMs, block.proofEndMs, block.committedMs, block.discardedMs)
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(R.string.block_detail), style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
+                }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(stringResource(R.string.block_heading, block.height ?: "—", block.slot, productionStatus(context, block.status)), color = blockColor(block.status))
+                    Text(stringResource(R.string.block_metrics, block.tx, block.zkapps, n(block.proofSeconds, 3)))
+                    Text(stringResource(R.string.block_timing, n(block.prepMs), n(block.delaySeconds, 3)))
+                    Text(stringResource(R.string.completed_snarks, block.snarks?.toString() ?: "—"))
+                    block.discardReason?.let { Text(stringResource(R.string.discard_reason, it), color = blockColor(block.status)) }
+                    SelectionContainer { Text(block.hash.ifBlank { stringResource(R.string.no_block_hash) }, style = MaterialTheme.typography.bodySmall) }
+                    ExplorerButton(block, network, explorer)
+                    Text(stringResource(R.string.sampled_peaks, samples.size, n(samples.mapNotNull { it.cpu }.maxOrNull()), n(samples.mapNotNull { it.ramMiB }.maxOrNull()), stringResource(R.string.unit_mib)))
+                    Text(stringResource(R.string.detail_samples_help), style = MaterialTheme.typography.bodySmall)
+                    SignalChart(stringResource(R.string.ram_chart, stringResource(R.string.unit_mib)), samples, Color(0xFF29B6B8),
+                        fixedMaximum = if (autoscale) null else state.ramCapacityMiB, bounds = bounds, markers = markers) { it.ramMiB }
+                    SignalChart(stringResource(R.string.cpu_chart), samples, Color(0xFFC99B10),
+                        fixedMaximum = if (autoscale) null else state.cpuCapacity, bounds = bounds, markers = markers) { it.cpu }
+                    Text(stringResource(R.string.detail_markers), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
 }

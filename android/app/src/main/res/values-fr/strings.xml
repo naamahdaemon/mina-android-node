@@ -12,7 +12,7 @@
     <string name="settings">Réglages</string>
     <string name="monitor">Moniteur</string>
     <string name="journal">Journal</string>
-    <string name="dashboard">Dashboard ↗</string>
+    <string name="dashboard">Dashboard</string>
     <string name="android_settings">Réglages Android ↗</string>
     <string name="menu_previous">Afficher les menus précédents</string>
     <string name="menu_next">Afficher les menus suivants</string>
@@ -181,4 +181,38 @@
     <string name="dashboard_open_error">Impossible d’ouvrir le dashboard (%1$s). Le diagnostic est dans l’onglet Journal.</string>
     <string name="retry">Réessayer</string>
     <string name="back_to_node">Retour au nœud</string>
+    <string name="hamburger_menu">Utiliser le menu hamburger</string>
+    <string name="explorer">Explorateur de blocs</string>
+    <string name="custom_explorer">Personnalisé</string>
+    <string name="explorer_template">Modèle URL HTTPS du bloc</string>
+    <string name="explorer_help">Inclure {hash} ; {network} est remplacé par mainnet ou devnet.</string>
+    <string name="explorer_saved">Explorateur enregistré</string>
+    <string name="header_slot">Prochain slot %1$s</string>
+    <string name="header_no_slot">Prochain slot —</string>
+    <string name="autoscale">Échelle automatique</string>
+    <string name="maximum_scale">Échelle maximale (capacité du téléphone)</string>
+    <string name="chart_live">Direct / réinitialiser</string>
+    <string name="chart_gestures">Pincez pour zoomer dans le temps. Glissez horizontalement pour parcourir. L’échelle maximale utilise la capacité RAM et CPU du téléphone.</string>
+    <string name="previous_page">Précédent</string>
+    <string name="next_page">Suivant</string>
+    <string name="block_page">%1$d / %2$d</string>
+    <string name="no_block_hash">Hash du bloc indisponible</string>
+    <string name="open_explorer">Ouvrir dans l’explorateur ↗</string>
+    <string name="block_timings_chart">Temps par bloc (secondes)</string>
+    <string name="block_transactions_chart">Transactions par bloc</string>
+    <string name="preparation_seconds">Prép. (s)</string>
+    <string name="proof_seconds">Preuve (s)</string>
+    <string name="delay_seconds">Délai (s)</string>
+    <string name="ordinary_transactions">Paiements + délégations</string>
+    <string name="zkapps">zkApps</string>
+    <string name="no_production_history">Aucune tentative de production pour le moment.</string>
+    <string name="block_chart_help">Glissez le graphe horizontalement. X : hauteur du bloc (s = slot sans bloc). Les mesures absentes restent vides ; les totaux de temps peuvent être partiels.</string>
+    <string name="block_detail">Détail du bloc</string>
+    <string name="close">Fermer</string>
+    <string name="completed_snarks">Travaux SNARK terminés : %1$s</string>
+    <string name="discard_reason">Motif d’abandon : %1$s</string>
+    <string name="detail_samples_help">Mesures conservées six heures pendant cette exécution. Les événements plus anciens ou précédant un redémarrage peuvent ne pas avoir de mesures.</string>
+    <string name="detail_markers">Repères verticaux : début/fin de preuve, validation locale ou abandon, si disponibles.</string>
+    <string name="save">Enregistrer</string>
+    <string name="open_navigation">Ouvrir le menu de navigation</string>
 </resources>

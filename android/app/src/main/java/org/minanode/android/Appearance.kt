@@ -27,6 +27,10 @@ class AppearancePreferences(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
     fun dark() = prefs.getBoolean("dark", true)
     fun setDark(value: Boolean) { prefs.edit().putBoolean("dark", value).apply() }
+    fun hamburger() = prefs.getBoolean("hamburger", false)
+    fun setHamburger(value: Boolean) { prefs.edit().putBoolean("hamburger", value).apply() }
+    fun explorer() = prefs.getString("explorer", "https://minascan.io/{network}/block/{hash}/txs")!!
+    fun setExplorer(value: String) { prefs.edit().putString("explorer", value).apply() }
     fun language(): String = requireNotNull(context.getSystemService(LocaleManager::class.java))
         .applicationLocales.get(0)?.language?.takeIf { it in listOf("en", "fr") } ?: "en"
     fun setLanguage(value: String) {

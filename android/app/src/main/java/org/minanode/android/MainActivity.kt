@@ -17,6 +17,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -70,7 +78,13 @@ class MainActivity : ComponentActivity() {
                 var profile by rememberSaveable(stateSaver = profileSaver) { mutableStateOf(store.load()) }
                 var profileDirty by rememberSaveable { mutableStateOf(false) }
                 var hasKey by remember { mutableStateOf(vault.exists(profile.network)) }
-                var page by rememberSaveable { mutableStateOf(NodePage.NODE) }
+                val pager = rememberPagerState { NodePage.entries.size }
+                val scope = rememberCoroutineScope()
+                var hamburger by remember { mutableStateOf(appearance.hamburger()) }
+                var menuOpen by remember { mutableStateOf(false) }
+                val page = NodePage.entries[pager.currentPage]
+                fun select(target: NodePage) { menuOpen = false; scope.launch { pager.animateScrollToPage(target.ordinal) } }
+                BackHandler(enabled = menuOpen || pager.currentPage != 0) { if (menuOpen) menuOpen = false else select(NodePage.NODE) }
                 val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     if (uri != null) lifecycleScope.launch {
                         val network = profile.network
@@ -106,40 +120,63 @@ class MainActivity : ComponentActivity() {
                 }
                 val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                        .verticalScroll(rememberSaveable(page, saver = ScrollState.Saver) { ScrollState(0) }).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        Text("MINA / ANDROID", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
-                        Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
-                        NodeMenu(page, state.run == RunPhase.RUNNING, onSelect = { page = it },
-                            onDashboard = { startActivity(Intent(this@MainActivity, DashboardActivity::class.java)) },
-                            onAndroidSettings = {
-                                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                            })
-                        if (page == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart,
+                    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                if (hamburger) Box {
+                                    TextButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
+                                    DropdownMenu(menuOpen, { menuOpen = false }) {
+                                        NodePage.entries.forEach { target ->
+                                            DropdownMenuItem(text = { Text(stringResource(target.title)) }, onClick = { select(target) })
+                                        }
+                                    }
+                                }
+                                Text("MINA / ANDROID", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary)
+                                SlotIndicator(state.monitor, active && profile.producer)
+                            }
+                            if (!hamburger) NodeMenu(page, onSelect = { select(it) })
+                        }
+                        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name }) { index ->
+                            val current = NodePage.entries[index]
+                            if (current == NodePage.DASHBOARD) {
+                                if (state.run == RunPhase.RUNNING) AndroidView(
+                                    factory = { DashboardView(it) { select(NodePage.NODE) } },
+                                    modifier = Modifier.fillMaxSize(), update = { it.setAppearance(dark) }, onRelease = { it.dispose() })
+                                else Text(stringResource(R.string.dashboard_api_error), Modifier.padding(24.dp))
+                            } else if (current == NodePage.JOURNAL) {
+                                Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(stringResource(R.string.journal), style = MaterialTheme.typography.titleLarge)
+                                        TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text(stringResource(R.string.export)) }
+                                    }
+                                    Text(state.message.resolve(context), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                                    Surface(Modifier.weight(1f).fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                        shape = MaterialTheme.shapes.small, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                                        SelectionContainer(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+                                            Text(state.log.ifBlank { context.getString(R.string.logs_empty) }, fontFamily = FontFamily.Monospace,
+                                                style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            } else Column(Modifier.fillMaxSize().verticalScroll(rememberSaveable(current, saver = ScrollState.Saver) { ScrollState(0) })
+                                .padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        if (current == NodePage.SETTINGS) NavigationSettings(appearance, hamburger, onHamburger = { hamburger = it; appearance.setHamburger(it) },
+                            onAndroidSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) })
+                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart,
                             onLanguage = { appearance.setLanguage(it) },
                             onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) })
-                        if (page == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
+                        if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                             onRemove = { vault.remove(profile.network); hasKey = false },
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })
-                        if (page == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
-                        if (page == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer)
-                        if (page == NodePage.JOURNAL) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(stringResource(R.string.journal), style = MaterialTheme.typography.titleLarge)
-                                TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text(stringResource(R.string.export)) }
-                            }
-                            Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
-                            SelectionContainer {
-                                Text(state.log.ifBlank { context.getString(R.string.logs_empty) },
-                                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(12.dp),
-                                    fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        if (page == NodePage.NODE) {
+                        if (current == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
+                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer())
+                        if (current == NodePage.NODE) {
+                        Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
+                        Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(when (state.run) {
@@ -181,6 +218,8 @@ class MainActivity : ComponentActivity() {
                         }
                         Text(stringResource(R.string.resource_warning), style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.termux_separate), style = MaterialTheme.typography.bodySmall)
+                        }
+                            }
                         }
                     }
                 }

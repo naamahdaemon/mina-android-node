@@ -19,11 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-enum class NodePage(val title: Int) { NODE(R.string.node), SETTINGS(R.string.settings), MONITOR(R.string.monitor), JOURNAL(R.string.journal) }
+enum class NodePage(val title: Int) { NODE(R.string.node), MONITOR(R.string.monitor), DASHBOARD(R.string.dashboard), SETTINGS(R.string.settings), JOURNAL(R.string.journal) }
 
 @Composable
-fun NodeMenu(selected: NodePage, dashboardAvailable: Boolean, onSelect: (NodePage) -> Unit,
-    onDashboard: () -> Unit, onAndroidSettings: () -> Unit) {
+fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -38,8 +37,6 @@ fun NodeMenu(selected: NodePage, dashboardAvailable: Boolean, onSelect: (NodePag
                 NodePage.entries.forEach { page ->
                     FilterChip(selected == page, { onSelect(page) }, label = { Text(stringResource(page.title)) })
                 }
-                AssistChip(enabled = dashboardAvailable, onClick = onDashboard, label = { Text(stringResource(R.string.dashboard)) })
-                AssistChip(onClick = onAndroidSettings, label = { Text(stringResource(R.string.android_settings)) })
             }
             IconButton(enabled = scroll.canScrollForward,
                 modifier = Modifier.semantics { contentDescription = context.getString(R.string.menu_next) },
