@@ -1,6 +1,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const select = require('../scripts/select-native-artifact.cjs');
+const { isNativeInput } = require('../scripts/native-inputs.cjs');
+
+test('mixed changes route to the full build, app-only changes do not', () => {
+  assert.equal(['android/app/src/main/AndroidManifest.xml', 'patches/fix.patch'].some(isNativeInput), true);
+  assert.equal(['android/app/build.gradle.kts', 'scripts/build-apk.sh'].some(isNativeInput), false);
+  assert.equal(isNativeInput('tests/android-file-lock.rs'), true);
+  assert.equal(isNativeInput('upstream.json'), true);
+});
 
 function fixture({ runs, changed = [], artifacts } = {}) {
   const outputs = {};

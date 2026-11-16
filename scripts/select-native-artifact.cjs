@@ -1,5 +1,7 @@
 // Called by actions/github-script. Only reuse artifacts from this repository's
 // main branch, and reject changes to the native compiler inputs since that run.
+const { isNativeInput } = require('./native-inputs.cjs');
+
 module.exports = async ({ github, context, core }) => {
   const repo = context.repo;
   const requested = (process.env.NATIVE_RUN_ID || '').trim();
@@ -25,9 +27,7 @@ module.exports = async ({ github, context, core }) => {
     if (!['ahead', 'identical'].includes(comparison.status) || (comparison.files || []).length >= 300) {
       throw new Error('Native artifact ancestry cannot be verified. Run the native workflow for the current source.');
     }
-    const nativeInput = path => path === 'upstream.json' || path.startsWith('patches/')
-      || ['scripts/build-android.sh', 'scripts/prepare-source.py', 'tests/android-file-lock.rs'].includes(path);
-    if ((comparison.files || []).some(f => nativeInput(f.filename) || (f.previous_filename && nativeInput(f.previous_filename)))) {
+    if ((comparison.files || []).some(f => isNativeInput(f.filename) || (f.previous_filename && isNativeInput(f.previous_filename)))) {
       throw new Error('Native inputs changed since this artifact. Run Android native prototype first; no automatic Rust rebuild is performed here.');
     }
     core.setOutput('run_id', String(run.id));

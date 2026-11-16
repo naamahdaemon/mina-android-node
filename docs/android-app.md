@@ -24,6 +24,10 @@ C, sans installer Rust ni appeler Cargo.
 
 Les changements sous `android/` et les scripts de build de l'application lancent
 automatiquement ce workflow. Ils ne déclenchent plus **Android native prototype**.
+Si un même push modifie aussi les entrées natives, seul le job de routage tourne
+dans le workflow application : son job APK est ignoré. Le workflow complet
+construit alors Rust puis l'APK, dans cet ordre. Un lancement manuel du workflow
+application reste possible après disponibilité d'un artifact natif compatible.
 Le workflow natif se lance automatiquement lorsque les patches, `upstream.json`,
 le script de compilation Rust, la préparation des sources ou le test du verrou
 changent. Une modification du workflow natif lui-même peut être testée en le
