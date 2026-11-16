@@ -12,8 +12,8 @@ class NodeFiles(context: Context, network: String = "devnet") {
 
     @Synchronized fun append(text: String) {
         if (console.length() > 4 * 1024 * 1024) {
-            if (previous.exists()) check(previous.delete()) { "Rotation du journal impossible" }
-            check(console.renameTo(previous)) { "Rotation du journal impossible" }
+            if (previous.exists()) requireUi(previous.delete(), R.string.error_log_rotation)
+            requireUi(console.renameTo(previous), R.string.error_log_rotation)
         }
         console.appendText(text + "\n")
     }

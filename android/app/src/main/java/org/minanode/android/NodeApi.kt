@@ -17,7 +17,7 @@ object NodeApi {
             connection.instanceFollowRedirects = false
             check(connection.responseCode == 200) { "HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { it.readNBytes(4 * 1024 * 1024 + 1) }
-            check(bytes.size <= 4 * 1024 * 1024) { "Réponse de statut trop volumineuse" }
+            requireUi(bytes.size <= 4 * 1024 * 1024, R.string.error_response_large)
             bytes.toString(Charsets.UTF_8)
         } finally {
             connection.disconnect()

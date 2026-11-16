@@ -13,7 +13,7 @@ object LaunchGate {
     private var pending: Pending? = null
 
     @Synchronized fun offer(profile: NodeProfile, password: CharArray?, now: Long = System.nanoTime()): String {
-        require(!profile.producer || password != null) { "Confirmer le mot de passe à chaque démarrage du producteur" }
+        requireUi(!profile.producer || password != null, R.string.error_password_required)
         clear()
         val id = UUID.randomUUID().toString()
         pending = Pending(id, AuthorizedLaunch(profile, password), now)

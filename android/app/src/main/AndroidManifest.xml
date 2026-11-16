@@ -5,7 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <application android:label="Mina Node" android:icon="@drawable/ic_node"
+    <application android:name=".MinaApplication" android:label="Mina Node" android:icon="@drawable/ic_node"
+        android:localeConfig="@xml/locales_config"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:allowBackup="false" android:supportsRtl="true"
         android:usesCleartextTraffic="false"

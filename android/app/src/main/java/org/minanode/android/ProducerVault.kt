@@ -32,13 +32,13 @@ class ProducerVault(private val context: Context) {
     fun import(network: MinaNetwork, uri: Uri) {
         val bytes = requireNotNull(context.contentResolver.openInputStream(uri)).use { it.readNBytes(65537) }
         try {
-            require(bytes.size in 1..65536) { "Fichier chiffré trop volumineux" }
+            requireUi(bytes.size in 1..65536, R.string.error_key_large)
             val json = runCatching { JSONObject(bytes.toString(Charsets.UTF_8)) }
-                .getOrElse { error("Le fichier n’est pas une clé Mina chiffrée JSON") }
-            require(json.optString("box_primitive") == "xsalsa20poly1305" && json.optString("pw_primitive") == "argon2i") { "Format de clé chiffrée Mina non pris en charge" }
-            for (name in listOf("nonce", "pwsalt", "ciphertext")) require(json.optString(name).isNotBlank()) { "Fichier de clé incomplet" }
-            val costs = json.optJSONArray("pwdiff") ?: error("Coût de dérivation absent")
-            require(costs.length() == 2 && costs.optLong(0) in 1..268435456 && costs.optLong(1) in 1..16) { "Coût Argon2 trop élevé pour ce profil mobile" }
+                .getOrElse { throw UiException(uiText(R.string.error_key_json)) }
+            requireUi(json.optString("box_primitive") == "xsalsa20poly1305" && json.optString("pw_primitive") == "argon2i", R.string.error_key_format)
+            for (name in listOf("nonce", "pwsalt", "ciphertext")) requireUi(json.optString(name).isNotBlank(), R.string.error_key_incomplete)
+            val costs = json.optJSONArray("pwdiff") ?: throw UiException(uiText(R.string.error_key_cost_missing))
+            requireUi(costs.length() == 2 && costs.optLong(0) in 1..268435456 && costs.optLong(1) in 1..16, R.string.error_key_cost)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
             val wrapped = byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + cipher.doFinal(bytes)
             val target = AtomicFile(file(network))
@@ -51,7 +51,7 @@ class ProducerVault(private val context: Context) {
     fun materialize(network: MinaNetwork): File {
         val bytes = file(network).readBytes()
         val size = bytes[0].toInt() and 255
-        require(size == 12 && bytes.size > 29) { "Coffre de clé invalide" }
+        requireUi(size == 12 && bytes.size > 29, R.string.error_vault)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
             init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(1, 1 + size)))
         }

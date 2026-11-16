@@ -28,23 +28,23 @@ data class NodeProfile(
     val allowWorkerControl: Boolean = false,
 ) {
     fun validate(hasKey: Boolean) {
-        require(!producer || hasKey) { "Importer d’abord un fichier de clé Mina chiffré" }
+        requireUi(!producer || hasKey, R.string.error_import_key)
         if (producer) {
-            require(coinbaseReceiver.isBlank() || validPublicKey(coinbaseReceiver)) { "Destinataire de la coinbase invalide" }
-            require(blockInjectDelayMs >= 1000) { "Délai de publication : au moins 1000 millisecondes" }
+            requireUi(coinbaseReceiver.isBlank() || validPublicKey(coinbaseReceiver), R.string.error_coinbase)
+            requireUi(blockInjectDelayMs >= 1000, R.string.error_publish_delay)
         }
         if (snarker) {
-            require(snarkerPublicKey.matches(Regex("B62[1-9A-HJ-NP-Za-km-z]{40,60}"))) { "Clé publique SNARK invalide" }
+            requireUi(snarkerPublicKey.matches(Regex("B62[1-9A-HJ-NP-Za-km-z]{40,60}")), R.string.error_snarker_key)
             val fee = snarkerFee.toBigDecimalOrNull()
-            require(snarkerFee.matches(Regex("[0-9]+(\\.[0-9]{1,9})?")) && fee != null && fee >= BigDecimal.ZERO && fee < BigDecimal("1000000000")) { "Frais SNARK invalides (9 décimales maximum)" }
+            requireUi(snarkerFee.matches(Regex("[0-9]+(\\.[0-9]{1,9})?")) && fee != null && fee >= BigDecimal.ZERO && fee < BigDecimal("1000000000"), R.string.error_snarker_fee)
         }
-        require(snarkerStrategy in listOf("rand", "seq")) { "Stratégie SNARK invalide" }
-        require(checkpointSeconds in 60..86400) { "Intervalle de sauvegarde : 60 à 86400 secondes" }
-        require(snarkerBlockFirstLead in 0..4200) { "Priorité production : 0 à 4200 secondes" }
-        require(maxPeers in 1..1000) { "Nombre maximal de pairs : 1 à 1000" }
-        require(libp2pPort in 1024..65535 && libp2pPort != NodeApi.PORT) { "Port P2P : 1024 à 65535, différent du port API ${NodeApi.PORT}" }
-        require(logLevel in listOf("error", "warn", "info", "debug", "trace")) { "Niveau de journal invalide" }
-        require(restoreTimeoutSeconds in 1..300) { "Délai de restauration : 1 à 300 secondes" }
+        requireUi(snarkerStrategy in listOf("rand", "seq"), R.string.error_strategy)
+        requireUi(checkpointSeconds in 60..86400, R.string.error_checkpoint_interval)
+        requireUi(snarkerBlockFirstLead in 0..4200, R.string.error_block_first)
+        requireUi(maxPeers in 1..1000, R.string.error_peers)
+        requireUi(libp2pPort in 1024..65535 && libp2pPort != NodeApi.PORT, R.string.error_p2p_port, NodeApi.PORT)
+        requireUi(logLevel in listOf("error", "warn", "info", "debug", "trace"), R.string.error_log_level)
+        requireUi(restoreTimeoutSeconds in 1..300, R.string.error_restore_timeout)
     }
 
     fun arguments(work: File, key: File?): List<String> = buildList {

@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.app.AlertDialog
 import android.text.InputType
 import android.view.WindowManager
+import android.view.WindowInsetsController
 import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,11 +22,15 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.doOnAttach
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
@@ -35,29 +40,43 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     private var preparingStart by mutableStateOf(false)
     private var pendingStart: NodeProfile? = null
     private var passwordDialog: AlertDialog? = null
     override fun onCreate(savedInstanceState: Bundle?) {
+        val appearance = AppearancePreferences(this)
+        setTheme(appearance.activityTheme())
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(
-                primary = Color(0xFFBBAAFF), background = Color(0xFF101018), surface = Color(0xFF1C1C29))) {
+            var dark by remember { mutableStateOf(appearance.dark()) }
+            DisposableEffect(dark) {
+                window.decorView.doOnAttach { view ->
+                    val flags = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                    view.windowInsetsController?.setSystemBarsAppearance(if (dark) 0 else flags, flags)
+                }
+                onDispose { }
+            }
+            MinaTheme(dark) {
+                val context = LocalContext.current
                 val state by NodeState.flow.collectAsStateWithLifecycle()
                 val store = remember { ProfileStore(this@MainActivity) }
                 val vault = remember { ProducerVault(this@MainActivity) }
-                var profile by remember { mutableStateOf(store.load()) }
-                var profileDirty by remember { mutableStateOf(false) }
+                val profileSaver = remember { Saver<NodeProfile, String>(
+                    save = { it.toJson().put("network", it.network.name).toString() },
+                    restore = { NodeProfile.fromJson(MinaNetwork.valueOf(JSONObject(it).getString("network")), JSONObject(it)) }) }
+                var profile by rememberSaveable(stateSaver = profileSaver) { mutableStateOf(store.load()) }
+                var profileDirty by rememberSaveable { mutableStateOf(false) }
                 var hasKey by remember { mutableStateOf(vault.exists(profile.network)) }
-                var page by remember { mutableStateOf("Nœud") }
+                var page by rememberSaveable { mutableStateOf(NodePage.NODE) }
                 val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     if (uri != null) lifecycleScope.launch {
                         val network = profile.network
                         val result = withContext(Dispatchers.IO) { runCatching { vault.import(network, uri) } }
                         hasKey = vault.exists(profile.network)
-                        NodeState.message(result.fold({ "Clé chiffrée importée" }, { "Import impossible : ${it.message}" }))
+                        NodeState.message(result.fold({ uiText(R.string.key_imported) }, { uiText(R.string.import_failed, it.userText()) }))
                     }
                 }
                 val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { continueStart() }
@@ -79,55 +98,58 @@ class MainActivity : ComponentActivity() {
                 val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
                     if (uri != null) lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) { runCatching {
-                            val stream = contentResolver.openOutputStream(uri) ?: error("Fichier inaccessible")
+                            val stream = contentResolver.openOutputStream(uri) ?: throw UiException(uiText(R.string.file_inaccessible))
                             NodeFiles(this@MainActivity).export(stream)
                         } }
-                        NodeState.message(result.fold({ "Journal exporté" }, { "Export impossible : ${it.message}" }))
+                        NodeState.message(result.fold({ uiText(R.string.log_exported) }, { uiText(R.string.export_failed, it.userText()) }))
                     }
                 }
                 val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                        .verticalScroll(remember(page) { ScrollState(0) }).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        .verticalScroll(rememberSaveable(page, saver = ScrollState.Saver) { ScrollState(0) }).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         Text("MINA / ANDROID", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text("Votre nœud.\nSur votre téléphone.", style = MaterialTheme.typography.headlineLarge)
+                        Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
                         Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                         NodeMenu(page, state.run == RunPhase.RUNNING, onSelect = { page = it },
                             onDashboard = { startActivity(Intent(this@MainActivity, DashboardActivity::class.java)) },
                             onAndroidSettings = {
                                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                             })
-                        if (page == "Réglages") ProfileEditor(profile, !active && !preparingStart, hasKey,
+                        if (page == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart,
+                            onLanguage = { appearance.setLanguage(it) },
+                            onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) })
+                        if (page == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                             onRemove = { vault.remove(profile.network); hasKey = false },
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
-                                .onSuccess { NodeState.message("Profil enregistré") }.onFailure { NodeState.message(it.message ?: "Profil invalide") } })
-                        if (page == "Réglages") Text(state.message, style = MaterialTheme.typography.bodyMedium)
-                        if (page == "Moniteur") MonitorPanel(state.monitor, store.load().producer)
-                        if (page == "Journal") {
+                                .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })
+                        if (page == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
+                        if (page == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer)
+                        if (page == NodePage.JOURNAL) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Journal", style = MaterialTheme.typography.titleLarge)
-                                TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text("Exporter") }
+                                Text(stringResource(R.string.journal), style = MaterialTheme.typography.titleLarge)
+                                TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text(stringResource(R.string.export)) }
                             }
-                            Text(state.message, style = MaterialTheme.typography.bodyMedium)
+                            Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
                             SelectionContainer {
-                                Text(state.log.ifBlank { "Les événements du nœud apparaîtront ici." },
-                                    Modifier.fillMaxWidth().background(Color(0xFF08080E)).padding(12.dp),
+                                Text(state.log.ifBlank { context.getString(R.string.logs_empty) },
+                                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(12.dp),
                                     fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        if (page == "Nœud") {
+                        if (page == NodePage.NODE) {
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(when (state.run) {
-                                    RunPhase.STOPPED -> "À l’arrêt"
-                                    RunPhase.STARTING -> "Démarrage"
-                                    RunPhase.RUNNING -> state.status.phase
-                                    RunPhase.STOPPING -> "Arrêt en cours"
-                                    RunPhase.ERROR -> "Intervention nécessaire"
+                                    RunPhase.STOPPED -> stringResource(R.string.stopped)
+                                    RunPhase.STARTING -> stringResource(R.string.starting)
+                                    RunPhase.RUNNING -> phaseText(context, state.status.phase)
+                                    RunPhase.STOPPING -> stringResource(R.string.stopping)
+                                    RunPhase.ERROR -> stringResource(R.string.attention_required)
                                 }, style = MaterialTheme.typography.titleLarge)
-                                Text(state.message, style = MaterialTheme.typography.bodyMedium)
+                                Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Button(enabled = !active && !preparingStart, onClick = {
@@ -139,26 +161,26 @@ class MainActivity : ComponentActivity() {
                                             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                                                 notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                                             } else continueStart()
-                                        }.onFailure { NodeState.message(it.message ?: "Profil invalide") }
-                                    }) { Text("Démarrer") }
+                                        }.onFailure { NodeState.message(it.userText()) }
+                                    }) { Text(stringResource(R.string.start)) }
                                     OutlinedButton(enabled = active && state.run != RunPhase.STOPPING, onClick = {
                                         startService(Intent(this@MainActivity, NodeService::class.java).setAction(NodeService.STOP))
-                                    }) { Text("Arrêter") }
+                                    }) { Text(stringResource(R.string.stop)) }
                                 }
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Metric("HAUTEUR", state.status.height?.toString() ?: "—", Modifier.weight(1f))
-                            Metric("PAIRS", state.status.peers.toString(), Modifier.weight(1f))
+                            Metric(stringResource(R.string.height), state.status.height?.toString() ?: "—", Modifier.weight(1f))
+                            Metric(stringResource(R.string.peers), state.status.peers.toString(), Modifier.weight(1f))
                         }
-                        Text("Âge du bloc : ${state.status.ageSeconds?.let { "$it s" } ?: "—"}  ·  Uptime : ${state.status.uptimeSeconds} s")
-                        Text("Sauvegarde : ${state.status.persistence} · API 127.0.0.1:${NodeApi.PORT}", style = MaterialTheme.typography.bodySmall)
-                        Text("Mode sélectionné : ${if (profile.producer) "producteur de blocs · mot de passe requis à chaque démarrage" else "nœud sans production"}", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.block_age_uptime, state.status.ageSeconds?.toString() ?: "—", state.status.uptimeSeconds))
+                        Text(stringResource(R.string.saved_state_api, state.status.persistence.resolve(context), NodeApi.PORT), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.selected_mode, stringResource(if (profile.producer) R.string.producer_mode else R.string.observer_mode)), style = MaterialTheme.typography.bodySmall)
                         if (state.vpn) Card {
-                            Text("VPN détecté. Lors des essais, il ralentissait fortement la synchronisation. Essayez sans VPN si le nœud prend du retard.", Modifier.padding(16.dp))
+                            Text(stringResource(R.string.vpn_warning), Modifier.padding(16.dp))
                         }
-                        Text("Le nœud consomme du réseau, du stockage et de la batterie. Pendant son exécution, le processeur reste actif même écran éteint. Android peut toutefois arrêter l’application.", style = MaterialTheme.typography.bodySmall)
-                        Text("Les données Termux restent séparées. Ce nœud utilise son propre stockage privé et effectue sa première synchronisation.", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.resource_warning), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.termux_separate), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -184,7 +206,7 @@ class MainActivity : ComponentActivity() {
                 Intent(this, NodeService::class.java).setAction(NodeService.START).putExtra(NodeService.LAUNCH_ID, id))
         }.onFailure {
             LaunchGate.revoke(id); secret?.fill('\u0000'); preparingStart = false
-            NodeState.message("Démarrage impossible : ${it.message}")
+            NodeState.message(uiText(R.string.start_failed, it.userText()))
         }
     }
 
@@ -197,10 +219,10 @@ class MainActivity : ComponentActivity() {
             setPadding(32, 24, 32, 24)
         }
         var submitted = false
-        val dialog = AlertDialog.Builder(this).setTitle("Démarrer le producteur · ${profile.network.cli}")
-            .setMessage("Saisir le mot de passe de la clé Mina pour ce lancement. Il ne sera pas enregistré.")
-            .setView(input).setNegativeButton("Annuler", null)
-            .setPositiveButton("Démarrer") { _, _ ->
+        val dialog = AlertDialog.Builder(this).setTitle(getString(R.string.password_title, profile.network.cli))
+            .setMessage(getString(R.string.password_message))
+            .setView(input).setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.start) { _, _ ->
                 val text = input.text
                 val secret = CharArray(text.length) { text[it] }
                 text.clear()

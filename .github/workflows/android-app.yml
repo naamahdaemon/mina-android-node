@@ -16,6 +16,7 @@ on:
       - scripts/prepare-signing.sh
       - android-signing.sha256
       - tests/test_apk_version.py
+      - tests/test_localization.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
       - tests/supervisor_test.py
@@ -29,6 +30,7 @@ on:
       - scripts/prepare-signing.sh
       - android-signing.sha256
       - tests/test_apk_version.py
+      - tests/test_localization.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
       - tests/supervisor_test.py

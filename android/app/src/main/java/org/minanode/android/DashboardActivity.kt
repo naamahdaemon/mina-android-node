@@ -26,8 +26,10 @@ class DashboardActivity : Activity() {
     private fun local(uri: Uri) = uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port == NodeApi.PORT
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val appearance = AppearancePreferences(this)
+        setTheme(appearance.activityTheme())
         super.onCreate(savedInstanceState)
-        container = FrameLayout(this).apply { setBackgroundColor(Color.rgb(8, 13, 19)) }
+        container = FrameLayout(this).apply { setBackgroundColor(if (appearance.dark()) Color.rgb(8, 13, 19) else Color.rgb(250, 248, 255)) }
         setContentView(container)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         // Resize the WebView's actual viewport. Padding inside the WebView would
@@ -45,9 +47,8 @@ class DashboardActivity : Activity() {
         // construct the AndroidX controller and dereference it during onCreate.
         container.doOnAttach { view ->
             runCatching {
-                view.windowInsetsController?.setSystemBarsAppearance(0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
+                val flags = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                view.windowInsetsController?.setSystemBarsAppearance(if (appearance.dark()) 0 else flags, flags)
                 ViewCompat.requestApplyInsets(view)
             }.onFailure { recordFailure("system bars", it) }
         }
@@ -60,8 +61,10 @@ class DashboardActivity : Activity() {
         container.removeAllViews()
         try {
             val page = WebView(this)
+            var themeApplied = false
             web = page
             page.apply {
+                setBackgroundColor(if (AppearancePreferences(this@DashboardActivity).dark()) Color.rgb(8, 13, 19) else Color.WHITE)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
@@ -69,6 +72,13 @@ class DashboardActivity : Activity() {
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 settings.setSupportMultipleWindows(false)
                 webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        if (view !== web || view == null || url == null || !local(Uri.parse(url)) || themeApplied) return
+                        themeApplied = true
+                        // Fixed literals only, on the exact trusted node origin. No JavaScript bridge.
+                        val theme = if (AppearancePreferences(this@DashboardActivity).dark()) "dark" else "light"
+                        view.evaluateJavascript("""(function(){try{var t="$theme";localStorage.setItem("minanode-theme",t);var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("light",t==="light");}catch(e){}})();""", null)
+                    }
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest): Boolean {
                         if (local(request.url)) return false
                         if (request.isForMainFrame && request.url.scheme in listOf("https", "http")) {
@@ -82,13 +92,13 @@ class DashboardActivity : Activity() {
                     }
 
                     override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail): Boolean {
-                        if (view === web) showFailure("Le moteur WebView s’est arrêté. Tu peux réessayer ou revenir au nœud.", null)
+                        if (view === web) showFailure(getString(R.string.dashboard_renderer_error), null)
                         return true // Acknowledge the renderer loss instead of terminating the app process.
                     }
 
                     override fun onReceivedError(view: WebView?, request: WebResourceRequest, error: WebResourceError) {
                         if (request.isForMainFrame && view === web) {
-                            showFailure("L’API locale n’est pas encore disponible. Attendre le démarrage du nœud puis réessayer.", null)
+                            showFailure(getString(R.string.dashboard_api_error), null)
                         }
                     }
                 }
@@ -96,14 +106,14 @@ class DashboardActivity : Activity() {
             container.addView(page, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             page.loadUrl("http://127.0.0.1:${NodeApi.PORT}/")
         } catch (error: Exception) {
-            showFailure("Impossible d’ouvrir le dashboard (${error.javaClass.simpleName}). Le diagnostic est dans l’onglet Journal.", error)
+            showFailure(getString(R.string.dashboard_open_error, error.javaClass.simpleName), error)
         }
     }
 
     private fun recordFailure(stage: String, error: Throwable?) {
         // Stack frames identify the failure without copying exception messages,
         // which may contain URLs or arbitrary data, into the exported log.
-        val diagnostic = "[app] Dashboard $stage · ${error?.javaClass?.simpleName ?: "WebView indisponible"}\n" +
+        val diagnostic = "[app] Dashboard $stage · ${error?.javaClass?.simpleName ?: "WebView unavailable"}\n" +
             error?.stackTrace?.take(16)?.joinToString("\n").orEmpty()
         runCatching {
             val files = NodeFiles(this)
@@ -122,10 +132,11 @@ class DashboardActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(padding, padding, padding, padding)
         }
-        body.addView(TextView(this).apply { text = "Dashboard indisponible"; textSize = 22f; setTextColor(Color.WHITE) })
-        body.addView(TextView(this).apply { text = message; textSize = 16f; setTextColor(Color.WHITE) })
-        body.addView(Button(this).apply { text = "Réessayer"; setOnClickListener { openDashboard() } })
-        body.addView(Button(this).apply { text = "Retour au nœud"; setOnClickListener { finish() } })
+        val foreground = if (AppearancePreferences(this).dark()) Color.WHITE else Color.rgb(24, 20, 32)
+        body.addView(TextView(this).apply { text = getString(R.string.dashboard_unavailable); textSize = 22f; setTextColor(foreground) })
+        body.addView(TextView(this).apply { text = message; textSize = 16f; setTextColor(foreground) })
+        body.addView(Button(this).apply { text = getString(R.string.retry); setOnClickListener { openDashboard() } })
+        body.addView(Button(this).apply { text = getString(R.string.back_to_node); setOnClickListener { finish() } })
         container.addView(body)
     }
 

@@ -119,6 +119,22 @@ de signature sans accepter de perdre son stockage privé.
 
 ## Profils et clé de production
 
+### Langue et apparence
+
+Dans **Settings / Réglages**, la carte **Application settings / Réglages de
+l’application** permet de choisir **English** (par défaut) ou **Français** et
+de basculer entre thème clair et sombre. Ces choix sont conservés après fermeture
+et mise à jour. Ils ne modifient pas le profil réseau et n’arrêtent pas le service
+du nœud. Les brouillons de profil sont conservés lors du changement de langue.
+
+Les textes natifs utilisent les ressources Android : `values/strings.xml` pour
+l’anglais et `values-fr/strings.xml` pour le français. Les messages de statut sont
+résolus à l’affichage, y compris ceux d’un nœud déjà actif. Les logs du moteur
+restent techniques, sans traduction. Le dashboard upstream conserve ses textes
+anglais ; il s’ouvre avec le thème sélectionné dans l’application.
+
+### Configuration du nœud
+
 **Réglages** permet de sélectionner mainnet/devnet, la production de blocs,
 un worker SNARK (clé publique, frais MINA et stratégie), les checkpoints et
 les délais réseau. Arrêter le nœud avant de modifier son profil.

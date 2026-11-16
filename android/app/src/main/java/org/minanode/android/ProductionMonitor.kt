@@ -21,7 +21,7 @@ data class MonitorState(
     val nextSlot: Long? = null, val nextSlotTimeMs: Long? = null,
     val temperature: Double? = null, val battery: Int? = null, val charging: Boolean = false,
     val thermal: Int = 0, val freeGiB: Double? = null, val usedMiB: Double? = null,
-    val producerError: String? = null,
+    val producerError: UiText? = null,
 )
 
 object ProductionParser {
@@ -94,7 +94,7 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
         val clock = System.currentTimeMillis()
         val samples = (state.samples + ResourceSample(clock, cpu, ram)).filter { it.timeMs >= clock - 6 * 3600_000L }.takeLast(21600)
         val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        var blocks = state.blocks; var nextSlot: Long? = null; var nextTime: Long? = null; var error: String? = null
+        var blocks = state.blocks; var nextSlot: Long? = null; var nextTime: Long? = null; var error: UiText? = null
         if (producer) {
             runCatching { NodeApi.get("stats/block_producer") }.onSuccess { text ->
                 runCatching { ProductionParser.parse(text) }.onSuccess { parsed ->
@@ -115,8 +115,8 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
                         catch (failure: Exception) { target.failWrite(out); throw failure }
                         lastResponse = text
                     }
-                }.onFailure { error = "Réponse production invalide" }
-            }.onFailure { error = "Statistiques de production indisponibles" }
+                }.onFailure { error = uiText(R.string.error_production_reply) }
+            }.onFailure { error = uiText(R.string.error_production_unavailable) }
         }
         if (now - lastDisk > 60_000_000_000L) {
             used = runCatching { files.work.walkTopDown().filter { it.isFile }.sumOf { it.length() } / 1048576.0 }.getOrNull()

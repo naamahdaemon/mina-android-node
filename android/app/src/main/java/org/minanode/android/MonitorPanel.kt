@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.nativeCanvas
@@ -20,36 +23,41 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private fun number(value: Double?, digits: Int = 1) = value?.let { String.format(Locale.ROOT, "%.${digits}f", it) } ?: "—"
+private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
 fun MonitorPanel(state: MonitorState, producer: Boolean) {
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
+    fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
+    val mib = stringResource(R.string.unit_mib)
+    val gib = stringResource(R.string.unit_gib)
     val latest = state.samples.lastOrNull()
-    Text("Ressources", style = MaterialTheme.typography.titleLarge)
-    Text("RAM : ${number(latest?.ramMiB)} Mio · CPU : ${number(latest?.cpu)} %")
-    Text("CPU : 100 % = un cœur. Les mesures indisponibles restent vides.", style = MaterialTheme.typography.bodySmall)
-    SignalChart("RAM du nœud (Mio)", state.samples, Color(0xFF53D9DB)) { it.ramMiB }
-    SignalChart("CPU du nœud (%)", state.samples, Color(0xFFFFD75A)) { it.cpu }
-    Text("Stockage du profil : ${number(state.usedMiB)} Mio · Libre : ${number(state.freeGiB)} Gio")
-    Text("Batterie : ${state.battery?.toString() ?: "—"} %${if (state.charging) " · en charge" else ""} · Température batterie : ${number(state.temperature)} °C")
-    if (state.thermal >= 3) Text("Android signale une contrainte thermique élevée. La production peut ralentir.", color = MaterialTheme.colorScheme.error)
+    Text(stringResource(R.string.resources), style = MaterialTheme.typography.titleLarge)
+    Text(stringResource(R.string.resource_current, n(latest?.ramMiB), mib, n(latest?.cpu)))
+    Text(stringResource(R.string.cpu_help), style = MaterialTheme.typography.bodySmall)
+    SignalChart(stringResource(R.string.ram_chart, mib), state.samples, if (LocalDarkTheme.current) Color(0xFF53D9DB) else Color(0xFF00696D)) { it.ramMiB }
+    SignalChart(stringResource(R.string.cpu_chart), state.samples, if (LocalDarkTheme.current) Color(0xFFFFD75A) else Color(0xFF806000)) { it.cpu }
+    Text(stringResource(R.string.storage_current, n(state.usedMiB), mib, n(state.freeGiB), gib))
+    Text(stringResource(R.string.battery_current, state.battery?.toString() ?: "—", if (state.charging) stringResource(R.string.charging) else "", n(state.temperature)))
+    if (state.thermal >= 3) Text(stringResource(R.string.thermal_warning), color = MaterialTheme.colorScheme.error)
     if (producer) {
-        Text("Production", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.production), style = MaterialTheme.typography.titleLarge)
         val remaining = state.nextSlotTimeMs?.let { ((it - System.currentTimeMillis()) / 1000).coerceAtLeast(0) }
-        Text(state.nextSlot?.let { "Prochain slot gagné : $it · dans $remaining s" } ?: "Aucun prochain slot gagné annoncé")
-        Text("${state.blocks.count { it.status == "Canonical" }} canoniques · ${state.blocks.count { it.status == "Orphaned" }} orphelins · ${state.blocks.size} blocs suivis")
-        state.producerError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Text("Historique limité aux 500 derniers blocs connus. Toucher un bloc pour ses détails.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.nextSlot == null) stringResource(R.string.no_next_slot) else stringResource(R.string.next_slot, state.nextSlot, remaining ?: "—"))
+        Text(stringResource(R.string.production_totals, state.blocks.count { it.status == "Canonical" }, state.blocks.count { it.status == "Orphaned" }, state.blocks.size))
+        state.producerError?.let { Text(it.resolve(context), color = MaterialTheme.colorScheme.error) }
+        Text(stringResource(R.string.production_history_help), style = MaterialTheme.typography.bodySmall)
         state.blocks.take(50).forEach { block ->
             var expanded by remember(block.hash) { mutableStateOf(false) }
             Card(Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("#${block.height ?: "—"} · slot ${block.slot} · ${block.status}", style = MaterialTheme.typography.titleSmall)
-                    Text("TX ${block.tx} · zkApps ${block.zkapps} · preuve ${number(block.proofSeconds, 3)} s")
+                    Text(stringResource(R.string.block_heading, block.height ?: "—", block.slot, productionStatus(context, block.status)), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.block_metrics, block.tx, block.zkapps, n(block.proofSeconds, 3)))
                     if (expanded) {
-                        Text("Préparation ${number(block.prepMs)} ms · publication ${number(block.delaySeconds, 3)} s")
+                        Text(stringResource(R.string.block_timing, n(block.prepMs), n(block.delaySeconds, 3)))
                         val samples = state.samples.filter { sample -> block.proofStartMs != null && block.proofEndMs != null && sample.timeMs in block.proofStartMs..block.proofEndMs }
-                        Text("Pics échantillonnés (${samples.size} points) : CPU ${number(samples.mapNotNull { it.cpu }.maxOrNull())} % · RAM ${number(samples.mapNotNull { it.ramMiB }.maxOrNull())} Mio")
+                        Text(stringResource(R.string.sampled_peaks, samples.size, n(samples.mapNotNull { it.cpu }.maxOrNull()), n(samples.mapNotNull { it.ramMiB }.maxOrNull()), mib))
                         Text(block.hash, style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -60,16 +68,19 @@ fun MonitorPanel(state: MonitorState, producer: Boolean) {
 
 @Composable
 private fun SignalChart(title: String, samples: List<ResourceSample>, color: Color, valueOf: (ResourceSample) -> Double?) {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
+    fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
     Text(title, style = MaterialTheme.typography.labelMedium)
     val values = samples.map { valueOf(it)?.takeIf { value -> value.isFinite() } }
     if (values.all { it == null }) {
-        Text("En attente de mesures", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.waiting_measurements), style = MaterialTheme.typography.bodySmall)
         return
     }
     val maximum = ResourceChartScale.maximum(values)
     val start = samples.first().timeMs
     val end = samples.last().timeMs
-    val formatter = remember { DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault()) }
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("HH:mm:ss", locale).withZone(ZoneId.systemDefault()) }
+    val description = stringResource(R.string.chart_description, title, n(maximum), formatter.format(Instant.ofEpochMilli(start)), formatter.format(Instant.ofEpochMilli(end)))
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = textColor.copy(alpha = 0.2f)
     val paint = remember(textColor) { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -81,10 +92,10 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
         bucket.filter { valueOf(it)?.isFinite() == true }.maxByOrNull { valueOf(it)!! } ?: bucket.first()
     }
     Canvas(Modifier.fillMaxWidth().height(160.dp).semantics {
-        contentDescription = "$title : échelle de 0 à ${number(maximum)}. Horaires locaux de ${formatter.format(Instant.ofEpochMilli(start))} à ${formatter.format(Instant.ofEpochMilli(end))}."
+        contentDescription = description
     }) {
         paint.textSize = 11.sp.toPx()
-        val labels = (0..4).map { number(maximum * it / 4, if (maximum < 10) 2 else if (maximum < 100) 1 else 0) }
+        val labels = (0..4).map { n(maximum * it / 4, if (maximum < 10) 2 else if (maximum < 100) 1 else 0) }
         val left = labels.maxOf { paint.measureText(it) } + 10.dp.toPx()
         val right = size.width - 4.dp.toPx()
         val fontHeight = paint.fontMetrics.descent - paint.fontMetrics.ascent
@@ -129,5 +140,5 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
         }
         drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
     }
-    Text("Heure locale · échelle verticale automatique", style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(R.string.chart_axis_help), style = MaterialTheme.typography.bodySmall)
 }
