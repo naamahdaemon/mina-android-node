@@ -160,7 +160,10 @@ Les deux paquets bénéficient du dashboard Rust embarqué à la racine de leur 
 
 ## Dashboard et moniteur
 
-**Nœud** ouvre le dashboard upstream embarqué dans une WebView limitée à
+La barre de menus regroupe **Nœud**, **Réglages**, **Moniteur**, **Journal**,
+**Dashboard** et **Réglages Android**. Des flèches cliquables et une barre de
+position rendent le défilement horizontal visible ; le glissement reste disponible.
+**Dashboard** ouvre le dashboard upstream embarqué dans une WebView limitée à
 `http://127.0.0.1:4300` : pas d'accès aux fichiers ni de pont JavaScript natif.
 Son viewport respecte les barres système, l'encoche et le clavier Android,
 y compris lorsque le système impose l'affichage bord à bord.

@@ -16,9 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -94,11 +92,11 @@ class MainActivity : ComponentActivity() {
                         Text("MINA / ANDROID", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Votre nœud.\nSur votre téléphone.", style = MaterialTheme.typography.headlineLarge)
                         Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Nœud", "Réglages", "Moniteur", "Journal").forEach { name ->
-                                FilterChip(page == name, { page = name }, label = { Text(name) })
-                            }
-                        }
+                        NodeMenu(page, state.run == RunPhase.RUNNING, onSelect = { page = it },
+                            onDashboard = { startActivity(Intent(this@MainActivity, DashboardActivity::class.java)) },
+                            onAndroidSettings = {
+                                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                            })
                         if (page == "Réglages") ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -156,16 +154,10 @@ class MainActivity : ComponentActivity() {
                         Text("Âge du bloc : ${state.status.ageSeconds?.let { "$it s" } ?: "—"}  ·  Uptime : ${state.status.uptimeSeconds} s")
                         Text("Sauvegarde : ${state.status.persistence} · API 127.0.0.1:${NodeApi.PORT}", style = MaterialTheme.typography.bodySmall)
                         Text("Mode sélectionné : ${if (profile.producer) "producteur de blocs · mot de passe requis à chaque démarrage" else "nœud sans production"}", style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(enabled = state.run == RunPhase.RUNNING, onClick = {
-                            startActivity(Intent(this@MainActivity, DashboardActivity::class.java))
-                        }) { Text("Ouvrir le tableau de bord complet") }
                         if (state.vpn) Card {
                             Text("VPN détecté. Lors des essais, il ralentissait fortement la synchronisation. Essayez sans VPN si le nœud prend du retard.", Modifier.padding(16.dp))
                         }
                         Text("Le nœud consomme du réseau, du stockage et de la batterie. Pendant son exécution, le processeur reste actif même écran éteint. Android peut toutefois arrêter l’application.", style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = {
-                            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                        }) { Text("Réglages Android de l’application") }
                         Text("Les données Termux restent séparées. Ce nœud utilise son propre stockage privé et effectue sa première synchronisation.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
