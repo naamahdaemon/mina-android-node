@@ -1,0 +1,5 @@
+/upstream/
+/target/
+/dist/
+/logs/
+__pycache__/
