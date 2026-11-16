@@ -1,10 +1,57 @@
 package org.minanode.android
 
 import java.io.File
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 class ProfileAndMonitorTest {
+    private val publicKey = "B62" + "a".repeat(52)
+
+    @Test fun oldProfilesKeepTheirValuesAndAcquireCompatibleDefaults() {
+        val loaded = NodeProfile.fromJson(MinaNetwork.MAINNET, JSONObject("""{"producer":true,"checkpointSeconds":600,"slowNetwork":true}"""))
+        assertTrue(loaded.producer)
+        assertEquals(600, loaded.checkpointSeconds)
+        assertEquals("", loaded.coinbaseReceiver)
+        assertEquals(8303, loaded.libp2pPort)
+        assertTrue(loaded.persistence)
+        assertTrue(loaded.restore)
+        assertEquals(1000L, loaded.blockInjectDelayMs)
+    }
+
+    @Test fun savesAndAppliesProductionNetworkStorageAndLoggingSettings() {
+        val profile = NodeProfile(producer = true, coinbaseReceiver = publicKey, blockInjectDelayMs = 1500,
+            snarkerBlockFirstLead = 600, maxPeers = 24, libp2pPort = 8400, logLevel = "debug",
+            restore = false, restoreTimeoutSeconds = 120, allowWorkerControl = true)
+        val loaded = NodeProfile.fromJson(profile.network, JSONObject(profile.toJson().toString()))
+        assertEquals(profile, loaded)
+        loaded.validate(true)
+        val args = loaded.arguments(File("work"), File("key.json"))
+        for ((name, value) in listOf("--coinbase-receiver" to publicKey, "--block-inject-delay-ms" to "1500",
+            "--max-peers" to "24", "--libp2p-port" to "8400", "--log-level" to "debug",
+            "--snarker-block-first-lead" to "600", "--frontier-store-load-timeout" to "120")) {
+            assertEquals(name, value, args[args.indexOf(name) + 1])
+        }
+        assertTrue(args.contains("--frontier-store-no-restore"))
+        assertTrue(args.contains("--allow-worker-control"))
+    }
+
+    @Test fun omitsCoinbaseOptionsWhenProductionIsOffOrReceiverIsEmpty() {
+        assertFalse(NodeProfile(coinbaseReceiver = publicKey).arguments(File("work"), null).contains("--coinbase-receiver"))
+        assertFalse(NodeProfile(producer = true).arguments(File("work"), File("key.json")).contains("--coinbase-receiver"))
+        val args = NodeProfile(persistence = false, restore = false).arguments(File("work"), null)
+        assertTrue(args.contains("--no-frontier-store"))
+        assertFalse(args.contains("--frontier-store-no-restore"))
+    }
+
+    @Test fun rejectsInvalidReceiverAndConflictingPortsBeforeLaunch() {
+        for (profile in listOf(NodeProfile(producer = true, coinbaseReceiver = "invalid"),
+            NodeProfile(producer = true, blockInjectDelayMs = 999), NodeProfile(libp2pPort = NodeApi.PORT),
+            NodeProfile(maxPeers = 0), NodeProfile(restoreTimeoutSeconds = 301), NodeProfile(snarkerBlockFirstLead = 4201))) {
+            assertTrue(runCatching { profile.validate(true) }.isFailure)
+        }
+    }
+
     @Test fun separatesNetworksAndKeepsCredentialsOutOfArguments() {
         val args = NodeProfile(MinaNetwork.MAINNET, producer = true)
             .arguments(File("mainnet"), File("encrypted.json"))

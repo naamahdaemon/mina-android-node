@@ -121,7 +121,16 @@ de signature sans accepter de perdre son stockage privé.
 
 **Réglages** permet de sélectionner mainnet/devnet, la production de blocs,
 un worker SNARK (clé publique, frais MINA et stratégie), les checkpoints et
-les délais réseau. Arrêter le nœud avant de modifier son profil. Les données
+les délais réseau. Arrêter le nœud avant de modifier son profil.
+
+Le profil propose aussi le destinataire public de la coinbase (vide = producteur),
+le délai minimal de publication, la fenêtre de priorité production face au worker,
+le pilotage du worker par le dashboard, le nombre maximal de pairs, le port P2P,
+la sauvegarde/restauration de la chaîne et son délai, ainsi que le niveau du journal.
+Le contenu du journal et son export sont regroupés dans l'onglet **Journal**.
+Les anciens profils reçoivent les valeurs par défaut des nouveaux champs.
+
+Les données
 et configurations sont séparées par réseau ; le répertoire devnet existant est
 conservé. Un changement de réseau démarre avec son propre stockage.
 

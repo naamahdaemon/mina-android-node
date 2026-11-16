@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -65,12 +67,12 @@ class MainActivity : ComponentActivity() {
                 val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                        .verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        .verticalScroll(remember(page) { ScrollState(0) }).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         Text("MINA / ANDROID", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Votre nœud.\nSur votre téléphone.", style = MaterialTheme.typography.headlineLarge)
                         Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Nœud", "Réglages", "Moniteur").forEach { name ->
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Nœud", "Réglages", "Moniteur", "Journal").forEach { name ->
                                 FilterChip(page == name, { page = name }, label = { Text(name) })
                             }
                         }
@@ -80,7 +82,20 @@ class MainActivity : ComponentActivity() {
                             onRemove = { vault.remove(profile.network); hasKey = false },
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile) }
                                 .onSuccess { NodeState.message("Profil enregistré") }.onFailure { NodeState.message(it.message ?: "Profil invalide") } })
+                        if (page == "Réglages") Text(state.message, style = MaterialTheme.typography.bodyMedium)
                         if (page == "Moniteur") MonitorPanel(state.monitor, store.load().producer)
+                        if (page == "Journal") {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Journal", style = MaterialTheme.typography.titleLarge)
+                                TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text("Exporter") }
+                            }
+                            Text(state.message, style = MaterialTheme.typography.bodyMedium)
+                            SelectionContainer {
+                                Text(state.log.ifBlank { "Les événements du nœud apparaîtront ici." },
+                                    Modifier.fillMaxWidth().background(Color(0xFF08080E)).padding(12.dp),
+                                    fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                         if (page == "Nœud") {
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -122,15 +137,6 @@ class MainActivity : ComponentActivity() {
                         TextButton(onClick = {
                             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                         }) { Text("Réglages Android de l’application") }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Journal", style = MaterialTheme.typography.titleLarge)
-                            TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text("Exporter") }
-                        }
-                        SelectionContainer {
-                            Text(state.log.ifBlank { "Les événements du nœud apparaîtront ici." },
-                                Modifier.fillMaxWidth().background(Color(0xFF08080E)).padding(12.dp),
-                                fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
-                        }
                         Text("Les données Termux restent séparées. Ce nœud utilise son propre stockage privé et effectue sa première synchronisation.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
