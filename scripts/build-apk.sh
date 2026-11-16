@@ -2,6 +2,10 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
+python3 -m unittest discover -s tests -p test_apk_version.py
+readarray -t apk_version < <(python3 scripts/apk-version.py)
+export APK_VERSION_CODE=${apk_version[0]}
+export APK_VERSION_NAME=${apk_version[1]}
 ndk_version=$(python3 -c 'import json; print(json.load(open("upstream.json"))["ndk"])')
 llvm="$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin"
 native="$root/android/app/src/main/jniLibs/arm64-v8a"
@@ -32,4 +36,8 @@ with zipfile.ZipFile(sys.argv[1]) as apk:
 print("APK native executables and license verified")
 PY
 cd "$root/dist"
+{
+  printf 'Version code: %s\nVersion name: %s\nApp source: %s\n' "$APK_VERSION_CODE" "$APK_VERSION_NAME" "${GITHUB_SHA:-local}"
+  "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs mina-android-devnet-debug.apk
+} > APK-BUILD-INFO.txt
 sha256sum mina-android-devnet-debug.apk > APK-SHA256SUMS

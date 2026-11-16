@@ -12,6 +12,8 @@ on:
     paths:
       - android/**
       - scripts/build-apk.sh
+      - scripts/apk-version.py
+      - tests/test_apk_version.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
       - tests/supervisor_test.py
@@ -21,6 +23,8 @@ on:
     paths:
       - android/**
       - scripts/build-apk.sh
+      - scripts/apk-version.py
+      - tests/test_apk_version.py
       - scripts/select-native-artifact.cjs
       - scripts/native-inputs.cjs
       - tests/supervisor_test.py
@@ -131,6 +135,7 @@ jobs:
           path: |
             dist/mina-android-devnet-debug.apk
             dist/APK-SHA256SUMS
+            dist/APK-BUILD-INFO.txt
           if-no-files-found: error
       - name: Upload application diagnostics
         if: always()

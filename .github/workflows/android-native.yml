@@ -82,6 +82,7 @@ jobs:
           path: |
             dist/mina-android-devnet-debug.apk
             dist/APK-SHA256SUMS
+            dist/APK-BUILD-INFO.txt
           if-no-files-found: error
       - name: Upload diagnostics
         if: always()

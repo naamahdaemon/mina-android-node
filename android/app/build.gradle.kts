@@ -11,8 +11,10 @@ android {
         applicationId = "org.minanode.android"
         minSdk = 33
         targetSdk = 36
-        versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toIntOrNull() ?: 1
-        versionName = "0.1.${versionCode}"
+        val buildVersionCode = providers.environmentVariable("APK_VERSION_CODE").orElse("1").get().toInt()
+        require(buildVersionCode in 1..2_100_000_000) { "Invalid APK_VERSION_CODE" }
+        versionCode = buildVersionCode
+        versionName = providers.environmentVariable("APK_VERSION_NAME").orElse("0.2.local").get()
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "SOURCE_COMMIT", "\"${providers.environmentVariable("GITHUB_SHA").orNull ?: "local"}\"")
     }

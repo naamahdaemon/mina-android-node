@@ -92,6 +92,14 @@ Références : [types de services au premier plan](https://developer.android.com
 
 ## Build et mises à jour
 
+Les deux workflows calculent le `versionCode` via `scripts/apk-version.py`, en
+secondes depuis le 1er janvier 2020 UTC. Les compteurs distincts de workflow ne
+sont plus utilisés : un nouveau build reçoit un code supérieur aux anciennes
+versions `0.1.*`, quel que soit le workflow. Le nom affiche la date UTC du build.
+L'artifact inclut `APK-BUILD-INFO.txt`, avec version, commit et empreintes du
+certificat de signature. Une version supérieure ne corrige pas une signature
+différente : conserver l'application installée pour diagnostiquer ce cas.
+
 Versions : AGP 8.10.1, Gradle 8.11.1, JDK 17, Kotlin 2.1.21, SDK/target 36.
 Gradle est installé par `gradle/actions/setup-gradle` dans GitHub Actions; la
 compilation locale n'est pas nécessaire. Android Studio peut ouvrir `android/`.
