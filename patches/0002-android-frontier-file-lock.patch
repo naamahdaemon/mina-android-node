@@ -1,0 +1,123 @@
+diff --git a/crates/node/src/persist/fs_backend.rs b/crates/node/src/persist/fs_backend.rs
+--- a/crates/node/src/persist/fs_backend.rs
++++ b/crates/node/src/persist/fs_backend.rs
+@@ -12,6 +12,10 @@
+ };
+ 
+ use mina_core::ChainId;
++
++#[cfg(target_os = "android")]
++#[path = "android_file_lock.rs"]
++mod android_file_lock;
+ 
+ use super::{
+     backend::{
+@@ -85,14 +89,20 @@
+             .read(true)
+             .write(true)
+             .open(self.path(LOCK_FILE)?)?;
+-        match file.try_lock() {
++        #[cfg(target_os = "android")]
++        let result = android_file_lock::try_lock_exclusive(&file);
++        #[cfg(not(target_os = "android"))]
++        let result = match file.try_lock() {
+             Ok(()) => {
+-                self.lock = Some(file);
+                 Ok(())
+             }
+             Err(fs::TryLockError::WouldBlock) => Err(io::ErrorKind::WouldBlock.into()),
+             Err(fs::TryLockError::Error(error)) => Err(error),
+-        }
++        };
++        result?;
++        // Closing this descriptor releases the lock, including on process exit.
++        self.lock = Some(file);
++        Ok(())
+     }
+ 
+     fn list(&mut self) -> io::Result<Vec<String>> {
+diff --git a/crates/node/src/persist/android_file_lock.rs b/crates/node/src/persist/android_file_lock.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/node/src/persist/android_file_lock.rs
+@@ -0,0 +1,80 @@
++//! Android's libc supports flock even on Rust versions where File::try_lock
++//! returns Unsupported. Keep the descriptor open for the lock's lifetime.
++use std::{fs::File, io, os::fd::AsRawFd, os::raw::c_int};
++
++// These are the Linux/Android sys/file.h ABI values, not fcntl record locks.
++const LOCK_EX: c_int = 2;
++const LOCK_NB: c_int = 4;
++
++extern "C" {
++    fn flock(fd: c_int, operation: c_int) -> c_int;
++}
++
++pub(super) fn try_lock_exclusive(file: &File) -> io::Result<()> {
++    loop {
++        // SAFETY: File owns a live descriptor; flock neither takes ownership
++        // nor accesses a Rust pointer. LOCK_NB makes contention non-blocking.
++        if unsafe { flock(file.as_raw_fd(), LOCK_EX | LOCK_NB) } == 0 {
++            return Ok(());
++        }
++        let error = io::Error::last_os_error();
++        if error.kind() != io::ErrorKind::Interrupted {
++            return Err(error);
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::{fs::{self, OpenOptions}, path::PathBuf, process::Command};
++
++    fn open(path: &std::path::Path) -> File {
++        OpenOptions::new().create(true).truncate(false).read(true).write(true)
++            .open(path).unwrap()
++    }
++
++    #[test]
++    fn independent_open_is_excluded_and_drop_releases_lock() {
++        let path = std::env::temp_dir().join(format!("mina-flock-{}", std::process::id()));
++        let owner = open(&path);
++        try_lock_exclusive(&owner).unwrap();
++        try_lock_exclusive(&owner).unwrap();
++        let contender = open(&path);
++        assert_eq!(try_lock_exclusive(&contender).unwrap_err().kind(), io::ErrorKind::WouldBlock);
++        drop(owner);
++        try_lock_exclusive(&contender).unwrap();
++        drop(contender);
++        fs::remove_file(path).unwrap();
++    }
++
++    #[test]
++    fn separate_process_is_excluded_and_can_lock_after_release() {
++        let path = std::env::temp_dir().join(format!("mina-flock-child-{}", std::process::id()));
++        let owner = open(&path);
++        try_lock_exclusive(&owner).unwrap();
++        let child = |blocked: bool| {
++            Command::new(std::env::current_exe().unwrap())
++                .args(["--exact", "android_file_lock::tests::child_lock_probe", "--nocapture"])
++                .env("MINA_FLOCK_TEST_PATH", &path)
++                .env("MINA_FLOCK_TEST_BLOCKED", if blocked { "1" } else { "0" })
++                .status().unwrap().success()
++        };
++        assert!(child(true));
++        drop(owner);
++        assert!(child(false));
++        fs::remove_file(path).unwrap();
++    }
++
++    #[test]
++    fn child_lock_probe() {
++        let Some(path) = std::env::var_os("MINA_FLOCK_TEST_PATH") else { return; };
++        let file = open(&PathBuf::from(path));
++        let result = try_lock_exclusive(&file);
++        if std::env::var("MINA_FLOCK_TEST_BLOCKED").unwrap() == "1" {
++            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::WouldBlock);
++        } else {
++            result.unwrap();
++        }
++    }
++}

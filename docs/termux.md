@@ -38,3 +38,33 @@ avec `termux-wake-unlock`. Cela ne garantit pas qu'Android gardera le processus.
 
 Relever les erreurs, le temps de synchronisation, la mémoire, la température
 et l'espace disque. Ne pas utiliser de clé de production pour cette validation.
+
+## Validation du verrouillage et de la persistance Android
+
+Le paquet inclut `frontier-lock-tests`, qui teste le même verrou `flock`
+que le stockage du nœud. Depuis le répertoire extrait dans Termux :
+
+```bash
+chmod +x frontier-lock-tests
+TMPDIR="$PREFIX/tmp" ./frontier-lock-tests --nocapture
+```
+
+Les tests vérifient l'exclusion de deux ouvertures, l'exclusion entre processus
+et la libération du verrou après fermeture. Ils utilisent des fichiers temporaires
+distincts du stockage réel du nœud.
+
+Pour vérifier la persistance, arrêter proprement l'ancienne instance, conserver
+le même dossier de données et lancer le nouveau binaire avec un intervalle court
+pour ce test (le port 4000 est celui utilisé sur l'appareil de validation) :
+
+```bash
+MINA_HTTP_PORT=4000 bash run-termux.sh --checkpoint-interval 60 --log-level debug \
+  2>&1 | tee "$HOME/mina/persistence-write.log"
+```
+
+Attendre le retour à `Synced`, puis un checkpoint réussi dans les logs. Arrêter
+avec Ctrl+C et attendre la fin du processus avant de relancer la même commande
+avec un autre fichier de log, `persistence-restore.log`. Rechercher les événements
+`PersistRestored`, `PersistLoadAbandoned`, `PersistOpenError` et les erreurs
+de checkpoint. La présence d'un fichier `LOCK` seul n'est pas une sauvegarde.
+Ne pas utiliser `--frontier-store-reset` pour ce test.

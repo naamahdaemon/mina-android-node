@@ -28,8 +28,16 @@ export CFLAGS_aarch64_linux_android='-fPIC'
 export CXXFLAGS_aarch64_linux_android='-fPIC'
 export ANDROID_NDK_HOME="$ndk"
 export ANDROID_NDK_ROOT="$ndk"
-mkdir -p logs dist
+mkdir -p logs dist target
 python3 scripts/prepare-source.py 2>&1 | tee logs/prepare.log
+# Test the exact Android flock implementation on Linux without building a
+# second copy of the node. Also ship its Android test executable for Termux.
+rustup run "$toolchain" rustc --edition 2021 --test tests/android-file-lock.rs \
+  -o target/frontier-lock-tests-host
+target/frontier-lock-tests-host --nocapture 2>&1 | tee logs/frontier-lock-tests.log
+rustup run "$toolchain" rustc --edition 2021 --test tests/android-file-lock.rs \
+  --target "$target" -C linker="$CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER" \
+  -C link-arg=-Wl,-z,max-page-size=16384 -o target/frontier-lock-tests
 cd upstream/mina-rust
 cargo +"$toolchain" build --release --locked --target "$target" \
   -p mina-cli --bin mina --no-default-features \
@@ -39,13 +47,14 @@ cd "$root"
 package="$root/dist/mina-android-arm64"
 mkdir -p "$package"
 cp "target/$target/release/mina" "$package/mina"
+cp target/frontier-lock-tests "$package/"
 "$llvm/llvm-strip" "$package/mina"
 "$llvm/llvm-readelf" -h -l -d "$package/mina" | tee logs/elf.txt
 cp upstream/mina-rust/{LICENSE,THIRD_PARTY_NOTICES,THIRD_PARTY_LICENSES} "$package/"
 cp docs/termux.md "$package/TERMUX.md"
 cp upstream.json "$package/BUILD-INFO.json"
 cp scripts/run-termux.sh "$package/"
-chmod +x "$package/mina" "$package/run-termux.sh"
-(cd "$package"; sha256sum mina run-termux.sh BUILD-INFO.json > SHA256SUMS)
+chmod +x "$package/mina" "$package/frontier-lock-tests" "$package/run-termux.sh"
+(cd "$package"; sha256sum mina frontier-lock-tests run-termux.sh BUILD-INFO.json > SHA256SUMS)
 tar -C dist -czf dist/mina-android-arm64.tar.gz mina-android-arm64
 (cd dist; sha256sum mina-android-arm64.tar.gz > SHA256SUMS)
