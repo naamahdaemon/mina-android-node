@@ -160,6 +160,8 @@ Son viewport respecte les barres système, l'encoche et le clavier Android,
 y compris lorsque le système impose l'affichage bord à bord.
 **Moniteur** affiche CPU (100 % = un cœur), RSS, espace disque, batterie et
 température. Les mesures interdites par Android restent absentes.
+Les courbes affichent une grille, les graduations RAM/CPU et les horaires locaux ;
+l'axe horizontal utilise les heures réelles des mesures, même si elles sont irrégulières.
 
 En production : prochains slots annoncés, blocs canoniques/orphelins, transactions,
 zkApps, préparation, preuve, délai preuve→commit et pics CPU/RAM échantillonnés.
