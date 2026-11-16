@@ -2,6 +2,7 @@ package org.minanode.android
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -29,12 +30,18 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private var preparingStart by mutableStateOf(false)
+    private var pendingStart: NodeProfile? = null
+    private var passwordDialog: AlertDialog? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -44,6 +51,7 @@ class MainActivity : ComponentActivity() {
                 val store = remember { ProfileStore(this@MainActivity) }
                 val vault = remember { ProducerVault(this@MainActivity) }
                 var profile by remember { mutableStateOf(store.load()) }
+                var profileDirty by remember { mutableStateOf(false) }
                 var hasKey by remember { mutableStateOf(vault.exists(profile.network)) }
                 var page by remember { mutableStateOf("Nœud") }
                 val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -54,7 +62,22 @@ class MainActivity : ComponentActivity() {
                         NodeState.message(result.fold({ "Clé chiffrée importée" }, { "Import impossible : ${it.message}" }))
                     }
                 }
-                val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+                val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { continueStart() }
+                val owner = LocalLifecycleOwner.current
+                DisposableEffect(owner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME && !profileDirty && !preparingStart &&
+                            NodeState.flow.value.run !in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)) {
+                            profile = store.load()
+                            hasKey = vault.exists(profile.network)
+                        }
+                    }
+                    owner.lifecycle.addObserver(observer)
+                    onDispose { owner.lifecycle.removeObserver(observer) }
+                }
+                LaunchedEffect(state.run) {
+                    if (state.run != RunPhase.STOPPED) preparingStart = false
+                }
                 val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
                     if (uri != null) lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) { runCatching {
@@ -76,11 +99,11 @@ class MainActivity : ComponentActivity() {
                                 FilterChip(page == name, { page = name }, label = { Text(name) })
                             }
                         }
-                        if (page == "Réglages") ProfileEditor(profile, !active, hasKey,
-                            onChange = { profile = it }, onNetwork = { profile = store.load(it); hasKey = vault.exists(it) },
+                        if (page == "Réglages") ProfileEditor(profile, !active && !preparingStart, hasKey,
+                            onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                             onRemove = { vault.remove(profile.network); hasKey = false },
-                            onSave = { runCatching { profile.validate(hasKey); store.save(profile) }
+                            onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message("Profil enregistré") }.onFailure { NodeState.message(it.message ?: "Profil invalide") } })
                         if (page == "Réglages") Text(state.message, style = MaterialTheme.typography.bodyMedium)
                         if (page == "Moniteur") MonitorPanel(state.monitor, store.load().producer)
@@ -109,10 +132,15 @@ class MainActivity : ComponentActivity() {
                                 Text(state.message, style = MaterialTheme.typography.bodyMedium)
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Button(enabled = !active, onClick = {
-                                        runCatching { profile.validate(hasKey); store.save(profile) }.onSuccess {
-                                            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                            if (profile.producer) passwordPrompt() else launchNode()
+                                    Button(enabled = !active && !preparingStart, onClick = {
+                                        runCatching { profile.validate(vault.exists(profile.network)); store.save(profile); profileDirty = false }.onSuccess {
+                                            preparingStart = true
+                                            pendingStart = profile
+                                            // Finish the Android permission dialog before opening the
+                                            // password dialog; never stack both windows at launch.
+                                            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                            } else continueStart()
                                         }.onFailure { NodeState.message(it.message ?: "Profil invalide") }
                                     }) { Text("Démarrer") }
                                     OutlinedButton(enabled = active && state.run != RunPhase.STOPPING, onClick = {
@@ -127,6 +155,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Text("Âge du bloc : ${state.status.ageSeconds?.let { "$it s" } ?: "—"}  ·  Uptime : ${state.status.uptimeSeconds} s")
                         Text("Sauvegarde : ${state.status.persistence} · API 127.0.0.1:${NodeApi.PORT}", style = MaterialTheme.typography.bodySmall)
+                        Text("Mode sélectionné : ${if (profile.producer) "producteur de blocs · mot de passe requis à chaque démarrage" else "nœud sans production"}", style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(enabled = state.run == RunPhase.RUNNING, onClick = {
                             startActivity(Intent(this@MainActivity, DashboardActivity::class.java))
                         }) { Text("Ouvrir le tableau de bord complet") }
@@ -149,14 +178,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun launchNode(secret: CharArray? = null) {
-        secret?.let { LaunchSecret.put(it) }
-        runCatching { ContextCompat.startForegroundService(this,
-            Intent(this, NodeService::class.java).setAction(NodeService.START)) }
-            .onFailure { LaunchSecret.clear(); NodeState.message("Démarrage impossible : ${it.message}") }
+    private fun continueStart() {
+        val profile = pendingStart ?: return
+        pendingStart = null
+        if (profile.producer) passwordPrompt(profile) else launchNode(profile)
     }
 
-    private fun passwordPrompt() {
+    private fun launchNode(profile: NodeProfile, secret: CharArray? = null) {
+        var id: String? = null
+        runCatching {
+            id = LaunchGate.offer(profile, secret)
+            ContextCompat.startForegroundService(this,
+                Intent(this, NodeService::class.java).setAction(NodeService.START).putExtra(NodeService.LAUNCH_ID, id))
+        }.onFailure {
+            LaunchGate.revoke(id); secret?.fill('\u0000'); preparingStart = false
+            NodeState.message("Démarrage impossible : ${it.message}")
+        }
+    }
+
+    private fun passwordPrompt(profile: NodeProfile) {
         // Native editable text avoids retaining the password in Compose or saved state.
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -164,18 +204,32 @@ class MainActivity : ComponentActivity() {
             importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
             setPadding(32, 24, 32, 24)
         }
-        val dialog = AlertDialog.Builder(this).setTitle("Déverrouiller la clé Mina")
-            .setMessage("Mot de passe demandé à chaque lancement ; il ne sera pas enregistré.")
+        var submitted = false
+        val dialog = AlertDialog.Builder(this).setTitle("Démarrer le producteur · ${profile.network.cli}")
+            .setMessage("Saisir le mot de passe de la clé Mina pour ce lancement. Il ne sera pas enregistré.")
             .setView(input).setNegativeButton("Annuler", null)
             .setPositiveButton("Démarrer") { _, _ ->
                 val text = input.text
                 val secret = CharArray(text.length) { text[it] }
                 text.clear()
-                launchNode(secret)
+                submitted = true
+                launchNode(profile, secret)
             }.create()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        dialog.setOnDismissListener { input.text.clear() }
+        passwordDialog = dialog
+        dialog.setOnDismissListener {
+            input.text.clear(); passwordDialog = null
+            if (!submitted) preparingStart = false
+        }
         dialog.show()
+        input.requestFocus()
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+    }
+
+    override fun onDestroy() {
+        pendingStart = null
+        passwordDialog?.dismiss()
+        super.onDestroy()
     }
 }
 

@@ -140,6 +140,12 @@ privé exclu des sauvegardes Android. L'original importé reste sous la responsa
 de son propriétaire : garder une copie chiffrée hors du téléphone.
 
 Le mot de passe est demandé à chaque lancement du producteur. La boîte de saisie
+est ouverte après l'éventuelle demande de permission de notification. Le service
+utilise le profil exact confirmé par l'écran et une autorisation en mémoire,
+consommée une seule fois et expirant après 60 secondes. Sans confirmation fraîche,
+le démarrage est refusé ; un ancien Intent ne peut pas réutiliser un mot de passe.
+Les profils enregistrés sont rafraîchis au retour dans l'application, sans écraser
+des modifications en cours. La boîte de saisie
 désactive sauvegarde, autofill et captures. Le secret passe par un pipe privé,
 avec une trame bornée, puis est effacé au mieux des buffers applicatifs et Rust ;
 il n'entre ni dans les Intent, ni dans les préférences, arguments ou variables

@@ -67,11 +67,3 @@ class ProducerVault(private val context: Context) {
 
     fun remove(network: MinaNetwork) { AtomicFile(file(network)).delete() }
 }
-
-/** No password in Intent extras, preferences, saved UI state or process environment. */
-object LaunchSecret {
-    private var pending: CharArray? = null
-    @Synchronized fun put(value: CharArray) { clear(); pending = value }
-    @Synchronized fun take(): CharArray? = pending.also { pending = null }
-    @Synchronized fun clear() { pending?.fill('\u0000'); pending = null }
-}

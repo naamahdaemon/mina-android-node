@@ -48,24 +48,34 @@ class NodeService : Service() {
             requestStop()
         } else if (intent?.action == START && NodeState.flow.value.run !in
             listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)) {
+            val authorized = LaunchGate.take(intent.getStringExtra(LAUNCH_ID))
             NodeState.flow.update { it.copy(run = RunPhase.STARTING, status = ChainStatus(), message = "Démarrage du nœud…") }
             if (Build.VERSION.SDK_INT >= 34) {
                 startForeground(ID, notification("Démarrage sur devnet"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             } else {
                 startForeground(ID, notification("Démarrage sur devnet"))
             }
-            scope.launch { startNode() }
+            if (authorized == null) {
+                NodeState.flow.update { it.copy(run = RunPhase.ERROR,
+                    message = "Confirmation de démarrage absente ou expirée. Appuyer sur Démarrer ; le producteur demande son mot de passe à chaque lancement.") }
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            } else {
+                scope.launch { startNode(authorized) }.invokeOnCompletion { authorized.close() }
+            }
+        } else if (intent?.action == START) {
+            LaunchGate.revoke(intent.getStringExtra(LAUNCH_ID))
         }
         // Explicit user starts only. The supervisor terminates the native child
         // if the application dies, so no detached node is adopted on restart.
         return START_NOT_STICKY
     }
 
-    private suspend fun startNode() = lifecycle.withLock {
+    private suspend fun startNode(authorized: AuthorizedLaunch) = lifecycle.withLock {
         if (NodeState.flow.value.run == RunPhase.STOPPING) return@withLock
-        var secret = LaunchSecret.take()
+        var secret = authorized.password
         try {
-            val profile = ProfileStore(this).load()
+            val profile = authorized.profile
             files = NodeFiles(this, profile.network.cli)
             val vault = ProducerVault(this)
             profile.validate(vault.exists(profile.network))
@@ -81,6 +91,8 @@ class NodeService : Service() {
             val supervisor = File(native, "libminasupervisor.so")
             check(binary.canExecute() && supervisor.canExecute()) { "Binaire ARM64 absent ou non exécutable dans cet APK" }
             files.append("\n=== Démarrage ${profile.network.cli} ${java.time.Instant.now()} ===")
+            files.append(if (profile.producer) "[app] Mode producteur · mot de passe confirmé pour ce lancement"
+                else "[app] Mode nœud sans production de blocs")
             val builder = ProcessBuilder(listOf(supervisor.absolutePath, binary.absolutePath)
                 + profile.arguments(files.work, producerFile)).directory(files.work).redirectErrorStream(true)
             builder.environment().apply {
@@ -176,7 +188,7 @@ class NodeService : Service() {
         } catch (error: Exception) {
             child?.destroyForcibly()
             child = null
-            secret?.fill('\u0000'); LaunchSecret.clear()
+            secret?.fill('\u0000')
             producerFile?.delete(); producerFile = null
             releaseWake()
             runCatching { files.append("Démarrage impossible : ${error.message}") }
@@ -187,7 +199,7 @@ class NodeService : Service() {
     }
 
     private fun requestStop() {
-        LaunchSecret.clear()
+        LaunchGate.clear()
         NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = "Arrêt propre en cours…") }
         scope.launch {
             lifecycle.withLock {
@@ -210,7 +222,7 @@ class NodeService : Service() {
     }
 
     override fun onDestroy() {
-        LaunchSecret.clear()
+        LaunchGate.clear()
         // EOF tells the supervisor to stop the node even if Android destroys
         // the service without an explicit Stop action.
         runCatching { child?.outputStream?.close() }
@@ -233,6 +245,7 @@ class NodeService : Service() {
 
     companion object {
         const val START = "org.minanode.android.START"
+        const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
         const val STOP = "org.minanode.android.STOP"
         private const val CHANNEL = "mina-node"
         private const val ID = 1
