@@ -312,12 +312,12 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
     fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
-    val begin = block.proofStartMs ?: block.producedMs ?: block.slotTimeMs
-    val end = block.discardedMs ?: block.committedMs ?: block.proofEndMs ?: block.producedMs ?: begin
-    val bounds = begin?.let { (it - 5000)..((end ?: it) + 5000) }
+    val bounds = block.resourcePeriod()
+    val recorded = ((state.productionSamples[block.id] ?: emptyList()) + state.samples)
+        .associateBy { it.timeMs }.values.sortedBy { it.timeMs }
     var detailWindow by rememberSaveable(block.id, stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
     val viewport = bounds?.let { detailWindow.bounds(it.first, it.last) }
-    val samples = state.samples.filter { viewport != null && it.timeMs in viewport }
+    val samples = recorded.filter { viewport != null && it.timeMs in viewport }
     val gestures = chartGestures { zoom, pan, anchor ->
         bounds?.let { detailWindow = detailWindow.transform(it.first, it.last, zoom, pan, anchor) }
     }
@@ -343,6 +343,7 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
                     ExplorerButton(block, network, explorer)
                     Text(stringResource(R.string.sampled_peaks, samples.size, n(samples.mapNotNull { it.cpu }.maxOrNull()), n(samples.mapNotNull { it.ramMiB }.maxOrNull()), stringResource(R.string.unit_mib)))
                     Text(stringResource(R.string.detail_samples_help), style = MaterialTheme.typography.bodySmall)
+                    if (state.resourceArchiveFailed) Text(stringResource(R.string.resource_archive_failed), color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = { detailWindow = ChartWindow() }) { Text(stringResource(R.string.reset_zoom)) }
                     SignalChart(stringResource(R.string.ram_chart, stringResource(R.string.unit_mib)), samples, Color(0xFF29B6B8), gestures,
                         fixedMaximum = if (autoscale) null else state.ramCapacityMiB, bounds = viewport, markers = markers) { it.ramMiB }

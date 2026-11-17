@@ -211,7 +211,7 @@
     <string name="close">Close</string>
     <string name="completed_snarks">Completed SNARK works: %1$s</string>
     <string name="discard_reason">Discard reason: %1$s</string>
-    <string name="detail_samples_help">Measurements retained for six hours during this run. Older events or events before restart may have no resource samples.</string>
+    <string name="detail_samples_help">Production CPU/RAM snapshots are saved privately (up to 500 attempts / 16 MiB). Older measurements from before this feature cannot be recovered. Missing measurements remain blank.</string>
     <string name="detail_markers">Vertical markers: proof start/end, commit or discard, when available.</string>
     <string name="save">Save</string>
     <string name="open_navigation">Open navigation menu</string>
@@ -222,4 +222,5 @@
     <string name="error_explorer_open">Could not open the selected block explorer.</string>
 <string name="no_measurements_period">No measurements in this period. Use Live / reset to return to the latest data.</string>
     <string name="dashboard_navigation_help">Dashboard gestures stay inside the dashboard. Swipe the MINA / ANDROID header to switch pages.</string>
+    <string name="resource_archive_failed">Could not save some production measurements. Check available storage; live measurements remain available.</string>
 </resources>

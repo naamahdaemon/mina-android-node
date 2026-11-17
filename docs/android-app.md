@@ -250,3 +250,13 @@ On Dashboard, the outer pager leaves all content gestures to the WebView. This
 prevents diagonal vertical scrolls and internal charts from changing app pages.
 Navigation remains available in the menu and by a deliberate 80 dp horizontal
 swipe on the fixed MINA / ANDROID header. Other pages retain normal pager swipes.
+
+Production resource snapshots are stored per slot under the profile's private
+`production-resources` directory. CPU/RAM samples cover five seconds before proof
+start through five seconds after commit/discard (ten minutes / 600 samples maximum
+per attempt). Active captures checkpoint at most once every five seconds with
+synced temporary-file replacement; a sudden stop may lose the last five seconds.
+The archive retains at most 500 attempts and 16 MiB, pruning oldest slots first.
+Each load is bounded and malformed snapshots cannot prevent node startup. Details
+merge archived and current-run samples. General six-hour live charts remain in
+memory. Older productions without captured measurements cannot be reconstructed.

@@ -126,8 +126,8 @@ class MainActivity : ComponentActivity() {
                 val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(Modifier.fillMaxWidth().pointerInput(dashboardGestures) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).pointerInput(dashboardGestures) {
                                 if (dashboardGestures) {
                                     var distance = 0f
                                     detectHorizontalDragGestures(onDragStart = { distance = 0f }, onDragCancel = { distance = 0f },
@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
                                 SlotIndicator(state.monitor, active && profile.producer)
                             }
                             if (!hamburger) NodeMenu(page, onSelect = { select(it) })
-                            if (dashboardGestures) Text(stringResource(R.string.dashboard_navigation_help),
+                            if (dashboardGestures) Text(stringResource(R.string.dashboard_navigation_help), Modifier.padding(horizontal = 16.dp),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name },

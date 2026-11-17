@@ -28,6 +28,8 @@ data class MonitorState(
     val producerError: UiText? = null,
     val cpuCapacity: Double = Runtime.getRuntime().availableProcessors() * 100.0,
     val ramCapacityMiB: Double? = null,
+    val productionSamples: Map<String, List<ResourceSample>> = emptyMap(),
+    val resourceArchiveFailed: Boolean = false,
 )
 
 object ProductionParser {
@@ -77,11 +79,12 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
     private var state = MonitorState()
     private var lastResponse: String? = null
     private val history = File(files.work, "production-history.json")
+    private val resources = ProductionResourceArchive(File(files.work, "production-resources"))
     init {
         runCatching {
             if (history.isFile && history.length() <= 4 * 1024 * 1024) {
                 val json = JSONObject(history.readText())
-                state = state.copy(blocks = ProductionParser.parse(json.toString()).first)
+                state = state.copy(blocks = ProductionParser.parse(json.toString()).first, productionSamples = resources.snapshot())
             }
         }
     }
@@ -141,7 +144,8 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
                 val info = android.app.ActivityManager.MemoryInfo()
                 context.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(info)
                 info.totalMem / 1048576.0
-            }.getOrNull())
+            }.getOrNull(), productionSamples = if (producer) resources.capture(blocks, samples, clock) else resources.snapshot(),
+            resourceArchiveFailed = resources.writeFailed)
         return state
     }
 }
