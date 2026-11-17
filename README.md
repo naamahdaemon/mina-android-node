@@ -31,13 +31,15 @@ These are device observations, not a compatibility certification. The newest wal
 
 ## Install the Android application
 
-1. Open [GitHub Actions](https://github.com/naamahdaemon/mina-android-node/actions) and select a successful **Android native prototype** or **Android application only** run containing an APK artifact.
-2. Download **`mina-android-devnet-apk`**, extract its ZIP and install `mina-android-devnet-debug.apk`. GitHub may require sign-in to download artifacts.
-3. If prompted, allow installation from the browser or file manager used to open the APK. Check `APK-BUILD-INFO.txt` for its version, source commit and signing certificate; `APK-SHA256SUMS` contains its checksum.
+1. Open the [latest available release](https://github.com/naamahdaemon/mina-android-node/releases), including prereleases, and download **`mina-android.apk`** from its assets.
+2. Open the APK on your Android device to install it. Download `SHA256SUMS` to verify its checksum and `APK-BUILD-INFO.txt` to check its version, source commit and signing certificate.
+3. If prompted, allow installation from the browser or file manager used to open the APK.
 4. Open **Mina Node**, allow notifications if desired, choose a network in **Settings**, then start the node. Begin on devnet with block production disabled.
 5. Wait for synchronization. Stop the node cleanly before changing its profile.
 
-The artifact and APK names retain their original `devnet` label, but the application supports **both mainnet and devnet**. These are signed test APKs distributed through Actions, not a Play Store release. Download only from a trusted repository/run; a checksum supplied alongside a binary detects corruption but does not independently establish its origin.
+The application supports **both mainnet and devnet**. These are signed experimental APKs, not a Play Store release. Download only from a trusted release/build; a checksum supplied alongside a binary detects corruption but does not independently establish its origin.
+
+For development builds not yet released, open [GitHub Actions](https://github.com/naamahdaemon/mina-android-node/actions), select a successful **Android native prototype** or **Android application only** run and download **`mina-android-devnet-apk`**. Extract its ZIP before installing `mina-android-devnet-debug.apk`; `APK-SHA256SUMS` contains its checksum. These historical artifact names do not restrict the selected network. GitHub may require sign-in to download Actions artifacts.
 
 Normal updates use the same signing identity and retain application data. Do not uninstall to troubleshoot an update until you have exported your encrypted keys: uninstalling or clearing app data removes private chain data, imported key storage and pending generated keys.
 
