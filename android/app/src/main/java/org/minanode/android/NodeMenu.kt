@@ -4,6 +4,9 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,11 +31,12 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            IconButton(enabled = scroll.canScrollBackward,
-                modifier = Modifier.semantics { contentDescription = context.getString(R.string.menu_previous) },
-                onClick = { scope.launch {
+            Box(Modifier.size(48.dp).semantics { contentDescription = context.getString(R.string.menu_previous) }
+                .clickable(enabled = scroll.canScrollBackward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value - maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtLeast(0))
-                } }) { Text("‹", fontSize = 32.sp) }
+                } }), contentAlignment = Alignment.CenterStart) {
+                Text("‹", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollBackward) 1f else 0.38f))
+            }
             Row(Modifier.weight(1f).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NodePage.entries.forEach { page ->
                     val requester = remember(page) { BringIntoViewRequester() }
@@ -40,11 +44,12 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                     FilterChip(selected == page, { onSelect(page) }, modifier = Modifier.bringIntoViewRequester(requester), label = { Text(stringResource(page.title)) })
                 }
             }
-            IconButton(enabled = scroll.canScrollForward,
-                modifier = Modifier.semantics { contentDescription = context.getString(R.string.menu_next) },
-                onClick = { scope.launch {
+            Box(Modifier.size(48.dp).semantics { contentDescription = context.getString(R.string.menu_next) }
+                .clickable(enabled = scroll.canScrollForward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value + maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtMost(scroll.maxValue))
-                } }) { Text("›", fontSize = 32.sp) }
+                } }), contentAlignment = Alignment.CenterEnd) {
+                Text("›", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollForward) 1f else 0.38f))
+            }
         }
         if (scroll.maxValue > 0) {
             Text(stringResource(R.string.menu_swipe),
