@@ -4,6 +4,15 @@ The project is Apache-2.0; see [LICENSE](../LICENSE). Dependencies retain their 
 
 The Android dependency inventory is generated from the **resolved release runtime graph**, rather than a handwritten list of direct dependencies. It covers the Android variants selected by Gradle and their transitive artifacts, including AndroidX Activity/Core/Lifecycle, Compose and Material 3, Kotlin, coroutines, annotations and any additional runtime components that resolution selects.
 
+## Verified source snapshot
+
+The snapshot below was generated and validated by CI on 2026-11-17 for the current dependency declarations (56 runtime components):
+
+- [Resolved Android dependency inventory](licenses/ANDROID-DEPENDENCIES.json)
+- [Full license text and preserved notices](licenses/ANDROID-THIRD-PARTY-NOTICES.txt)
+
+Builds regenerate these files from their actual resolved dependencies. Refresh this source snapshot when dependency declarations or resolution change; each APK/release contains its own authoritative generated copy.
+
 ## Published inventory
 
 Every new signed APK artifact and GitHub release includes:
