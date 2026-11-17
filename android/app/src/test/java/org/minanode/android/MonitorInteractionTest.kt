@@ -53,6 +53,14 @@ class MonitorInteractionTest {
         assertNull(block.proofSeconds)
         assertNull(block.height)
     }
+    @Test fun canonicalLookupRequiresExactHeightAndValidStateHash() {
+        val hash = "3N" + "a".repeat(50)
+        val reply = """{"headers":[{"height":42,"hash":"$hash"}]}"""
+        assertEquals(hash, NodeApi.parseBestChainHash(reply, 42))
+        assertNull(NodeApi.parseBestChainHash(reply, 43))
+        assertNull(NodeApi.parseBestChainHash("""{"headers":[]}""", 42))
+        assertNull(NodeApi.parseBestChainHash(reply.replace(hash, "invalid"), 42))
+    }
     @Test fun navigationOrderIsStable() {
         assertEquals(listOf("NODE", "MONITOR", "DASHBOARD", "SETTINGS", "JOURNAL"), NodePage.entries.map { it.name })
     }

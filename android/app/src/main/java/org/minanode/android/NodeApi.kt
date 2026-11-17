@@ -8,8 +8,25 @@ object NodeApi {
 
     fun status(network: String = "devnet"): ChainStatus = ChainStatus.parse(get("status"), expectedNetwork = network)
 
+    fun bestChainHash(height: Long, network: String): String {
+        require(height in 1..4_294_967_295L)
+        // Verify the network on both sides of the lookup, including during a restart.
+        status(network)
+        val hash = parseBestChainHash(get("best-chain/headers?limit=1&max_height=$height"), height)
+        status(network)
+        return hash ?: throw UiException(uiText(R.string.canonical_unavailable))
+    }
+
+    fun parseBestChainHash(text: String, height: Long): String? {
+        val header = org.json.JSONObject(text).optJSONArray("headers")?.optJSONObject(0) ?: return null
+        // max_height may return an older header: never substitute a different height.
+        if (header.optLong("height", -1) != height) return null
+        return header.optString("hash").takeIf { ExplorerLink.url(ExplorerLink.DEFAULT, "mainnet", it) != null }
+    }
+
     fun get(path: String): String {
-        require(path in listOf("status", "stats/block_producer", "stats/sync/progress"))
+        require(path in listOf("status", "stats/block_producer", "stats/sync/progress") ||
+            path.matches(Regex("best-chain/headers\\?limit=1&max_height=[0-9]{1,10}")))
         val connection = URL("http://127.0.0.1:$PORT/$path").openConnection() as HttpURLConnection
         return try {
             connection.connectTimeout = 1500

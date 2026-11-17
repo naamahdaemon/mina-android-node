@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -109,3 +110,9 @@ object BlockPages {
     fun count(size: Int) = maxOf(1, (size + SIZE - 1) / SIZE)
     fun <T> items(blocks: List<T>, page: Int): List<T> = blocks.drop(page.coerceIn(0, count(blocks.size) - 1) * SIZE).take(SIZE)
 }
+
+// Bundle-compatible state survives disposal of an off-screen pager page and Activity recreation.
+val ChartWindowSaver = Saver<ChartWindow, LongArray>(
+    save = { longArrayOf(it.spanMs, it.offsetMs, it.endTimeMs ?: Long.MIN_VALUE) },
+    restore = { ChartWindow(it[0], it[1], it[2].takeUnless { value -> value == Long.MIN_VALUE }) },
+)

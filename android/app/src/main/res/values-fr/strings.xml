@@ -216,4 +216,8 @@
     <string name="save">Enregistrer</string>
     <string name="open_navigation">Ouvrir le menu de navigation</string>
 <string name="reset_zoom">Réinitialiser le zoom</string>
+    <string name="open_canonical_height">Bloc canonique à la hauteur %1$s ↗</string>
+    <string name="canonical_unavailable">Cette hauteur n’est plus disponible dans la chaîne actuelle du nœud. Le nœud ne conserve que sa frontière récente.</string>
+    <string name="canonical_lookup_failed">Impossible de rechercher cette hauteur. Vérifiez que le nœud fonctionne et que son API locale est disponible.</string>
+    <string name="error_explorer_open">Impossible d’ouvrir l’explorateur sélectionné.</string>
 </resources>

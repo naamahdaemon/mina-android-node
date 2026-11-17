@@ -226,3 +226,16 @@ around proof/commit/discard, available metrics, discard reason and a hash-based
 explorer link. Resource history covers this run's last six hours; missing samples
 or timings are not reconstructed. Raw public attempt history survives restarts.
 Logs use a selectable, bounded text area with internal vertical scrolling.
+
+Small page flicks now snap back unless they travel at least 30% of a page; slow
+swipes require 65%. The Node page presents a colored status badge: green synced,
+amber starting/syncing/stopping, gray stopped, red error.
+
+The Monitor preserves its scale mode, time viewport and both block-plot scroll
+positions when leaving and returning to the page. Reset/live explicitly clears
+the time viewport. A second explorer link on each attempt with a known height
+resolves that exact height against the local best-chain headers before opening
+the configured explorer by hash. The network is checked before and after lookup.
+This is the node's current chain, subject to reorganization, not an external
+finality guarantee. Heights outside its retained frontier show an unavailable
+message rather than silently selecting another block.

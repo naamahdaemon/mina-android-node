@@ -38,12 +38,15 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
 fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean) {
-    var window by remember { mutableStateOf(ChartWindow()) }
+    var window by rememberSaveable(stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
     var autoscale by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<ProducedBlock?>(null) }
@@ -199,9 +202,37 @@ private fun blockColor(status: String): Color = when (status) {
 private fun ExplorerButton(block: ProducedBlock, network: String, explorer: String) {
     val context = LocalContext.current
     val url = ExplorerLink.url(explorer, network, block.hash)
-    TextButton(enabled = url != null, onClick = {
-        url?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } }
-    }) { Text(stringResource(if (url == null) R.string.no_block_hash else R.string.open_explorer)) }
+    val scope = rememberCoroutineScope()
+    var loading by remember(block.id) { mutableStateOf(false) }
+    var failure by remember(block.id) { mutableStateOf<UiText?>(null) }
+    failure?.let { message ->
+        AlertDialog(onDismissRequest = { failure = null }, title = { Text(stringResource(R.string.explorer)) },
+            text = { Text(message.resolve(context)) }, confirmButton = { TextButton(onClick = { failure = null }) { Text(stringResource(R.string.close)) } })
+    }
+    Column {
+        TextButton(enabled = url != null, onClick = {
+            url?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } }
+        }) { Text(stringResource(if (url == null) R.string.no_block_hash else R.string.open_explorer)) }
+        block.height?.let { height ->
+            TextButton(enabled = !loading, onClick = {
+                loading = true
+                scope.launch {
+                    try {
+                        val result = withContext(Dispatchers.IO) { runCatching { NodeApi.bestChainHash(height, network) } }
+                        result.onSuccess { hash ->
+                            val canonicalUrl = ExplorerLink.url(explorer, network, hash)
+                            if (canonicalUrl == null) failure = uiText(R.string.error_explorer_open)
+                            else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(canonicalUrl))) }
+                                .onFailure { failure = uiText(R.string.error_explorer_open) }
+                        }.onFailure { failure = if (it is UiException) it.text else uiText(R.string.canonical_lookup_failed) }
+                    } finally { loading = false }
+                }
+            }) {
+                if (loading) CircularProgressIndicator(Modifier.size(16.dp).padding(end = 4.dp), strokeWidth = 2.dp)
+                Text(stringResource(R.string.open_canonical_height, height))
+            }
+        }
+    }
 }
 
 /** Each column is a block; scrolling these plots consumes the pager's horizontal gesture. */
@@ -231,7 +262,7 @@ private fun BlockBars(blocks: List<ProducedBlock>, timings: Boolean) {
         color = textColor.toArgb(); typeface = android.graphics.Typeface.MONOSPACE
     } }
     val scroll = rememberScrollState()
-    var initial by remember { mutableStateOf(false) }
+    var initial by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(scroll.maxValue) { if (!initial && scroll.maxValue > 0) { scroll.scrollTo(scroll.maxValue); initial = true } }
     val description = stringResource(if (timings) R.string.block_timings_chart else R.string.block_transactions_chart)
     Row(Modifier.fillMaxWidth()) {
@@ -283,7 +314,7 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
     val begin = block.proofStartMs ?: block.producedMs ?: block.slotTimeMs
     val end = block.discardedMs ?: block.committedMs ?: block.proofEndMs ?: block.producedMs ?: begin
     val bounds = begin?.let { (it - 5000)..((end ?: it) + 5000) }
-    var detailWindow by remember(block.id) { mutableStateOf(ChartWindow()) }
+    var detailWindow by rememberSaveable(block.id, stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
     val viewport = bounds?.let { detailWindow.bounds(it.first, it.last) }
     val samples = state.samples.filter { viewport != null && it.timeMs in viewport }
     val gestures = chartGestures { zoom, pan, anchor ->

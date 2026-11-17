@@ -216,4 +216,8 @@
     <string name="save">Save</string>
     <string name="open_navigation">Open navigation menu</string>
 <string name="reset_zoom">Reset zoom</string>
+    <string name="open_canonical_height">Canonical at height %1$s ↗</string>
+    <string name="canonical_unavailable">This height is no longer available in the node’s current chain. The node only retains its recent frontier.</string>
+    <string name="canonical_lookup_failed">Could not look up this height. Check that the node is running and its local API is available.</string>
+    <string name="error_explorer_open">Could not open the selected block explorer.</string>
 </resources>
