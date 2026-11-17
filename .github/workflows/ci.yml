@@ -60,9 +60,9 @@ jobs:
           gradle --no-daemon --console=plain :app:exportReleaseDependencies
           cd ..
           python3 scripts/android-licenses.py android/app/build/reports/licenses/release-dependencies.json
-      - name: Test and lint unsigned release variant
+      - name: Test, lint and assemble unsigned release variant
         working-directory: android
-        run: gradle --no-daemon --console=plain testReleaseUnitTest lintRelease
+        run: gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease
       - name: Upload dependency inventory and test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
