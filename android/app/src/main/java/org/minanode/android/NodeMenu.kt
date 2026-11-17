@@ -31,7 +31,7 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.size(48.dp).semantics { contentDescription = context.getString(R.string.menu_previous) }
+            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = context.getString(R.string.menu_previous) }
                 .clickable(enabled = scroll.canScrollBackward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value - maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtLeast(0))
                 } }), contentAlignment = Alignment.CenterStart) {
@@ -44,7 +44,7 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                     FilterChip(selected == page, { onSelect(page) }, modifier = Modifier.bringIntoViewRequester(requester), label = { Text(stringResource(page.title)) })
                 }
             }
-            Box(Modifier.size(48.dp).semantics { contentDescription = context.getString(R.string.menu_next) }
+            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = context.getString(R.string.menu_next) }
                 .clickable(enabled = scroll.canScrollForward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value + maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtMost(scroll.maxValue))
                 } }), contentAlignment = Alignment.CenterEnd) {
