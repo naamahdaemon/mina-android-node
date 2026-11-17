@@ -62,7 +62,9 @@ jobs:
           python3 scripts/android-licenses.py android/app/build/reports/licenses/release-dependencies.json
       - name: Test, lint and assemble unsigned release variant
         working-directory: android
-        run: gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease
+        run: |
+          gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease
+          python3 ../scripts/verify-android-tests.py app/build/test-results
       - name: Upload dependency inventory and test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -72,4 +74,5 @@ jobs:
             dist/ANDROID-DEPENDENCIES.json
             dist/ANDROID-THIRD-PARTY-NOTICES.txt
             android/app/build/reports/
+            android/app/build/test-results/
           if-no-files-found: ignore

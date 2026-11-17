@@ -6,7 +6,7 @@ The Android dependency inventory is generated from the **resolved release runtim
 
 ## Verified source snapshot
 
-The snapshot below was generated and validated by CI on 2026-11-17 for the current dependency declarations (56 runtime components):
+The snapshot below was generated and validated by CI on 2026-11-17 for the current dependency declarations (60 runtime components):
 
 - [Resolved Android dependency inventory](licenses/ANDROID-DEPENDENCIES.json)
 - [Full license text and preserved notices](licenses/ANDROID-THIRD-PARTY-NOTICES.txt)

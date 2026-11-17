@@ -143,4 +143,5 @@ jobs:
           path: |
             logs/
             android/app/build/reports/
+            android/app/build/test-results/
           if-no-files-found: ignore
