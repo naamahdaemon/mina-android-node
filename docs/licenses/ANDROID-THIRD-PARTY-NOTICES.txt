@@ -9133,9 +9133,9 @@ Apache License
 }
 
 
-=== org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2 ===
+=== org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0 ===
 {
-  "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2",
+  "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0",
   "name": "kotlinx-coroutines-android",
   "project_url": "https://github.com/Kotlin/kotlinx.coroutines",
   "licenses": [
@@ -9149,17 +9149,17 @@ Apache License
   ],
   "artifacts": [
     {
-      "name": "kotlinx-coroutines-android-1.10.2.jar",
-      "sha256": "e713f1f874244115a07571065cffa0f24f5e78300e9720fea16de3af1d75fd41"
+      "name": "kotlinx-coroutines-android-1.11.0.jar",
+      "sha256": "c2cb206d27017c7d1bf5ff179787397543d13748dbabb0d7237e1585e0b29044"
     }
   ],
   "embedded_notices": []
 }
 
 
-=== org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2 ===
+=== org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0 ===
 {
-  "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2",
+  "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0",
   "name": "kotlinx-coroutines-core",
   "project_url": "https://github.com/Kotlin/kotlinx.coroutines",
   "licenses": [
@@ -9173,8 +9173,8 @@ Apache License
   ],
   "artifacts": [
     {
-      "name": "kotlinx-coroutines-core-jvm-1.10.2.jar",
-      "sha256": "5ca175b38df331fd64155b35cd8cae1251fa9ee369709b36d42e0a288ccce3fd"
+      "name": "kotlinx-coroutines-core-jvm-1.11.0.jar",
+      "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa"
     }
   ],
   "embedded_notices": []
