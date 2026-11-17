@@ -89,6 +89,19 @@ class MainActivity : ComponentActivity() {
                 val dashboardGestures = NodePage.entries[pager.settledPage] == NodePage.DASHBOARD
                 val headerSwipeThreshold = with(LocalDensity.current) { 80.dp.toPx() }
                 fun select(target: NodePage) { menuOpen = false; scope.launch { pager.animateScrollToPage(target.ordinal) } }
+                val titleSwipe = Modifier.pointerInput(pager.settledPage, headerSwipeThreshold) {
+                    val origin = pager.settledPage
+                    var distance = 0f
+                    detectHorizontalDragGestures(onDragStart = { distance = 0f }, onDragCancel = { distance = 0f },
+                        onDragEnd = {
+                            val target = when {
+                                distance > headerSwipeThreshold -> origin - 1
+                                distance < -headerSwipeThreshold -> origin + 1
+                                else -> origin
+                            }
+                            if (target != origin) NodePage.entries.getOrNull(target)?.let { select(it) }
+                        }) { change, amount -> change.consume(); distance += amount }
+                }
                 BackHandler(enabled = menuOpen || pager.currentPage != 0) { if (menuOpen) menuOpen = false else select(NodePage.NODE) }
                 val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                     if (uri != null) lifecycleScope.launch {
@@ -127,16 +140,7 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                            Row(Modifier.fillMaxWidth().pointerInput(dashboardGestures) {
-                                if (dashboardGestures) {
-                                    var distance = 0f
-                                    detectHorizontalDragGestures(onDragStart = { distance = 0f }, onDragCancel = { distance = 0f },
-                                        onDragEnd = {
-                                            if (distance > headerSwipeThreshold) select(NodePage.MONITOR)
-                                            else if (distance < -headerSwipeThreshold) select(NodePage.SETTINGS)
-                                        }) { change, amount -> change.consume(); distance += amount }
-                                }
-                            }, verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().then(titleSwipe), verticalAlignment = Alignment.CenterVertically) {
                                 if (hamburger) Box {
                                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
                                     DropdownMenu(menuOpen, { menuOpen = false }) {
@@ -150,7 +154,7 @@ class MainActivity : ComponentActivity() {
                                 SlotIndicator(state.monitor, active && profile.producer)
                             }
                             if (!hamburger) NodeMenu(page, onSelect = { select(it) })
-                            if (dashboardGestures) Text(stringResource(R.string.dashboard_navigation_help),
+                            if (dashboardGestures) Text(stringResource(R.string.dashboard_navigation_help), titleSwipe,
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name },
@@ -163,11 +167,11 @@ class MainActivity : ComponentActivity() {
                                 else Text(stringResource(R.string.dashboard_api_error), Modifier.padding(24.dp))
                             } else if (current == NodePage.JOURNAL) {
                                 Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(Modifier.fillMaxWidth().then(titleSwipe), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text(stringResource(R.string.journal), style = MaterialTheme.typography.titleLarge)
                                         TextButton(onClick = { export.launch("mina-android-log.txt") }) { Text(stringResource(R.string.export)) }
                                     }
-                                    Text(state.message.resolve(context), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                                    Text(state.message.resolve(context), titleSwipe.fillMaxWidth(), style = MaterialTheme.typography.bodySmall, maxLines = 2)
                                     Surface(Modifier.weight(1f).fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerLowest,
                                         shape = MaterialTheme.shapes.small, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                                         SelectionContainer(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
@@ -190,10 +194,12 @@ class MainActivity : ComponentActivity() {
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })
                         if (current == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
-                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer(), active)
+                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer(), active, titleSwipe)
                         if (current == NodePage.NODE) {
-                        Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
-                        Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                        Column(Modifier.fillMaxWidth().then(titleSwipe), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                            Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
+                            Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                        }
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 NodeStatusBadge(state.run, state.status.phase)

@@ -45,7 +45,7 @@ import kotlinx.coroutines.withContext
 private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
-fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean) {
+fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean, titleSwipe: Modifier = Modifier) {
     var window by rememberSaveable(stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
     var autoscale by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableIntStateOf(0) }
@@ -65,9 +65,9 @@ fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explor
     val mib = stringResource(R.string.unit_mib)
     val gib = stringResource(R.string.unit_gib)
     val latest = state.samples.lastOrNull()
-    Text(stringResource(R.string.resources), style = MaterialTheme.typography.titleLarge)
-    Text(stringResource(R.string.resource_current, n(latest?.ramMiB), mib, n(latest?.cpu)))
-    Text(stringResource(R.string.cpu_help), style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(R.string.resources), titleSwipe.fillMaxWidth(), style = MaterialTheme.typography.titleLarge)
+    Text(stringResource(R.string.resource_current, n(latest?.ramMiB), mib, n(latest?.cpu)), titleSwipe.fillMaxWidth())
+    Text(stringResource(R.string.cpu_help), titleSwipe.fillMaxWidth(), style = MaterialTheme.typography.bodySmall)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(if (autoscale) R.string.autoscale else R.string.maximum_scale), Modifier.weight(1f))
         Switch(autoscale, { autoscale = it })
