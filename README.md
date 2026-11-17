@@ -1,48 +1,104 @@
 # Mina Android Node
 
-Portage expérimental de [Mina Rust](https://github.com/minanode/mina-rust)
-vers Android ARM64, d'abord sous Termux, puis dans une application Android.
-La démarche reprend celle de [Mina Win Node](https://github.com/naamahdaemon/mina-win-node).
-Le moteur Mina et son protocole proviennent du projet upstream.
+Run a native [Mina Rust](https://github.com/minanode/mina-rust) node on an ARM64 Android device, either through the Android application or directly in Termux. The application runs the Rust executable locally; it does not require Termux, proot or a remote node.
 
-## Compilation dans GitHub Actions
+This is an experimental community port, inspired by [Mina Win Node](https://github.com/naamahdaemon/mina-win-node). It is not an official Mina release or a security-audited wallet. Start with devnet and keep independent backups before using a production key.
 
-Le workflow **Android native prototype** compile sur Ubuntu avec le NDK
-Android `27.3.13750724`, Rust `1.92.0` et la cible `aarch64-linux-android`.
-Il démarre sur les pushes de code et peut être lancé avec **Run workflow**.
-Aucune compilation locale n'est nécessaire.
+## Features
 
-La CI construit aussi un APK **Mina Node** pour Android ARM64 : profils mainnet/
-devnet, démarrage et arrêt, persistance, dashboard intégré, moniteur de ressources,
-production avec clé chiffrée et worker SNARK.
-Télécharger l'artifact `mina-android-devnet-apk` du build réussi.
-Voir [le guide de l'application Android](docs/android-app.md).
+- Separate mainnet and devnet profiles, local chain storage and checkpoint restoration.
+- Optional block production with an imported, password-encrypted Mina key file; a password is required at every producer start.
+- Native wallet generation, one-time private-key display and encrypted key-file export.
+- SNARK worker configuration, coinbase receiver and peer/network settings.
+- Embedded upstream dashboard and a native monitor with CPU/RAM charts, production attempts, timings and explorer links.
+- Persisted resource snapshots for captured production attempts; five attempts per monitor page.
+- Upcoming production countdown and configurable notification lead time.
+- English (default) and French, light/dark themes, full-screen mode and horizontal or hamburger navigation.
+- Exportable logs in a dedicated tab.
 
-Pour les modifications de l'application, **Android application only** réutilise
-un artifact natif existant et évite de recompiler Rust. Il se lance sur les
-changements de l'application ou manuellement avec **Run workflow**.
+## Requirements and validation
 
-`upstream.json` fige les versions. `scripts/prepare-source.py` prépare les
-sources et applique `patches/*.patch`. Les adaptations Windows ne sont pas
-appliquées au port Android. Le frontend historique est exclu du checkout
-pour permettre aussi l'inspection des sources sous Windows.
+The **application requires Android 13 or later and ARM64 (`arm64-v8a`)**. It does not support 32-bit ARM or x86 devices. The standalone native binary is built for Android API 28; that build target is not a guarantee of support on every older device.
 
-La configuration utilise libp2p, les circuits et le dashboard embarqués, sans
-WebRTC. Android utilise son allocateur système. Le linker est
-configuré pour des segments alignés sur 16 Kio. La compatibilité effective
-doit être vérifiée sur appareil.
+Allow sufficient free storage, sustained network access and cooling. Resource use varies with network state and enabled roles; this project does not yet establish a general minimum RAM requirement. Android and manufacturer battery policies can stop the node even while its foreground service is active.
 
-Un build réussi fournit `mina-android-arm64` et ses sommes SHA-256. Les logs
-sont conservés dans `android-build-diagnostics`, y compris en cas d'échec.
-Voir [les instructions Termux](docs/termux.md).
+| Device | Observed results |
+| --- | --- |
+| Xiaomi 14T Pro, Android 16, 12 GB RAM | Native synchronization, checkpoint restoration and application operation; mainnet block production with a confirmed canonical block. |
+| Xiaomi Pad 5, Android 13 | APK installation and application launch. Node synchronization and production have not been established on this device. |
 
-## État
+These are device observations, not a compatibility certification. The newest wallet-generation flow still needs end-to-end device validation. SNARK worker configuration is available, but sustained worker operation has not been validated here. A passing CI build alone does not establish correct on-device behavior.
 
-Compilation, synchronisation devnet et restauration validées sur Xiaomi 14T Pro
-(Android 16, 12 Go RAM). Les nouveaux profils, la production et le worker doivent
-encore être validés sur appareil, d'abord sur devnet.
+## Install the Android application
 
-## Attribution
+1. Open [GitHub Actions](https://github.com/naamahdaemon/mina-android-node/actions) and select a successful **Android native prototype** or **Android application only** run containing an APK artifact.
+2. Download **`mina-android-devnet-apk`**, extract its ZIP and install `mina-android-devnet-debug.apk`. GitHub may require sign-in to download artifacts.
+3. If prompted, allow installation from the browser or file manager used to open the APK. Check `APK-BUILD-INFO.txt` for its version, source commit and signing certificate; `APK-SHA256SUMS` contains its checksum.
+4. Open **Mina Node**, allow notifications if desired, choose a network in **Settings**, then start the node. Begin on devnet with block production disabled.
+5. Wait for synchronization. Stop the node cleanly before changing its profile.
 
-Le code du nœud conserve les licences et notices upstream, incluses dans
-l'archive générée. Ce dépôt contient le portage et son outillage.
+The artifact and APK names retain their original `devnet` label, but the application supports **both mainnet and devnet**. These are signed test APKs distributed through Actions, not a Play Store release. Download only from a trusted repository/run; a checksum supplied alongside a binary detects corruption but does not independently establish its origin.
+
+Normal updates use the same signing identity and retain application data. Do not uninstall to troubleshoot an update until you have exported your encrypted keys: uninstalling or clearing app data removes private chain data, imported key storage and pending generated keys.
+
+See the [Android application guide](docs/android-app.md) for settings, production, backups, monitoring and troubleshooting.
+
+## Run directly in Termux
+
+Download **`mina-android-arm64`** from **Android native prototype**. It contains a native archive and checksums. Extract and run it inside Termux's private home directory, not Android shared storage. No proot environment is needed.
+
+The supplied launcher starts **devnet**, stores data under `$HOME/.mina-android/devnet` and serves the local API/dashboard at `http://127.0.0.1:3000`. See the [Termux guide](docs/termux.md) for complete installation and persistence checks.
+
+Application and Termux storage are separate. Installing the APK does not import an existing Termux chain or key.
+
+## Builds and updates
+
+All Android compilation is handled by GitHub Actions.
+
+| Workflow | Purpose |
+| --- | --- |
+| [Android native prototype](.github/workflows/android-native.yml) | Validate the app, build the patched Rust node, upload the reusable native package, then build the APK. Use after changing native inputs or when no compatible native artifact remains. |
+| [Android application only](.github/workflows/android-app.yml) | Reuse a compatible native artifact from `main`, verify checksums, and rebuild the app and small C supervisor without recompiling Rust. |
+
+App-only changes trigger the application workflow. Native-input changes trigger the full workflow. For a mixed push, the application workflow routes APK creation to the full workflow so Rust finishes first. Both workflows can also be started manually. Documentation-only changes do not trigger either build.
+
+The app-only workflow deliberately fails if the selected artifact is incompatible, missing or expired; it never silently rebuilds Rust. Native artifacts are retained for 90 days and uploaded before APK compilation. Diagnostics are available as `android-build-diagnostics` or `android-app-diagnostics`.
+
+[upstream.json](upstream.json) pins Mina Rust revision `5ee3c569bc00a2ea8631f6373bd151322a4566d1`, Rust `1.92.0`, Android NDK `27.3.13750724` and target `aarch64-linux-android` (API 28). [Source preparation](scripts/prepare-source.py) applies the ordered [Android patches](patches). The legacy frontend is excluded from the source checkout for Windows filesystem compatibility. Windows-specific patches are not applied.
+
+The binary uses libp2p, embedded circuits and the embedded dashboard, without WebRTC. Android uses its system allocator; native ELF segments are configured for 16 KiB alignment. Actual device compatibility still requires testing.
+
+### Building a fork
+
+Configure a durable signing identity through GitHub Actions secrets:
+
+- `MINA_SIGNING_KEYSTORE_BASE64`
+- `MINA_SIGNING_STORE_PASSWORD`
+- `MINA_SIGNING_KEY_PASSWORD`
+- `MINA_SIGNING_ALIAS`
+
+The signing certificate must match [android-signing.sha256](android-signing.sha256). A fork using its own keystore must update this public certificate pin accordingly. Never commit the keystore or passwords. A different certificate cannot update an already installed APK signed by this project. Keep the same signing identity for subsequent builds; see the [build and signing guide](docs/android-app.md#builds-and-signing).
+
+## Security and operational limits
+
+- Back up the **encrypted Mina key file** outside the application and keep its password separately. Android Keystore protection is not a recovery mechanism. Losing both the usable app copy and your backup can make the key unrecoverable.
+- The producer password is not saved by the app. Rust must decrypt the key in memory to sign; this is not hardware-isolated signing. Clipboard and managed-memory copies cannot be guaranteed to disappear completely.
+- The application API binds to `127.0.0.1:4300`. Loopback avoids exposing it directly to the LAN but is not per-application authentication; other local software may reach it. Do not expose the API through a public proxy or port-forward without reviewing its access controls.
+- Review exported logs before publishing them. They can contain public addresses, peer/network information and future production opportunities. Never publish private keys, passwords or signing secrets in issues.
+- A VPN caused severe synchronization delays during device testing. If synchronization stalls, compare behavior without it and inspect download progress rather than assuming a protocol failure.
+- A foreground service and CPU wake lock do not guarantee continuous operation, timely notifications or block production. There is no unattended producer restart without a fresh password.
+- Canonical-chain labels reflect the node's current view and can change during a reorganization.
+
+## Documentation and contributions
+
+- [Android application: installation, settings, keys, monitoring and CI](docs/android-app.md)
+- [Termux: native package, launch commands and persistence testing](docs/termux.md)
+- [Contributor workflow](AGENTS.md)
+
+For bug reports, include the app version, source commit, Android version, device model, selected network and reproducible steps. Share only reviewed, redacted diagnostics. Keep changes focused and validate the relevant behavior in CI and on a device where appropriate.
+
+## Attribution and licensing
+
+The node engine and protocol implementation come from [Mina Rust](https://github.com/minanode/mina-rust); this repository supplies Android adaptations, application code and build tooling. Native packages and APK assets include the upstream license and third-party notices.
+
+This repository currently has no separate top-level license for its own application and porting code. Public availability alone does not grant an open-source license for those additions. Their licensing must be clarified before presenting the entire project as open source or redistributing those additions under an assumed license. Upstream components retain their respective licenses.
