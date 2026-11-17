@@ -8,7 +8,7 @@ The Android dependency inventory is generated from the **resolved release runtim
 
 Every new signed APK artifact and GitHub release includes:
 
-- `ANDROID-DEPENDENCIES.json`: exact resolved coordinates/versions, artifact SHA-256 hashes, Maven-declared license names/URLs, available attribution metadata and embedded notice paths.
+- `ANDROID-DEPENDENCIES.json`: exact resolved coordinates/versions, artifact SHA-256 hashes, Maven-declared license names/URLs (including inherited parent POM licenses), available attribution metadata and embedded notice paths.
 - `ANDROID-THIRD-PARTY-NOTICES.txt`: full applicable license text and preserved attribution/notice text from the resolved AAR/JAR files, including nested `classes.jar` entries.
 
 Identical copies are packaged inside the APK at `assets/app-licenses/`. The CI `android-checks` artifact also contains the files, without requiring signing secrets. See [Releases](https://github.com/naamahdaemon/mina-android-node/releases) for the inventory corresponding to a distributed APK; older releases predate this addition.

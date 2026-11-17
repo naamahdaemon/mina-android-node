@@ -49,6 +49,20 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(inventory[0]['coordinate'], 'org.example:library:1')
             self.assertEqual(len(inventory[0]['artifacts'][0]['sha256']), 64)
 
+    def test_inherits_license_from_parent_pom(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manifest = self.fixture(root)
+            parent = root / 'library.pom'
+            child = licenses.ET.fromstring('<project xmlns="http://maven.apache.org/POM/4.0.0"><parent><groupId>org.example</groupId><artifactId>parent</artifactId><version>1</version></parent></project>')
+            resolved = []
+            def resolver(coordinate):
+                resolved.append(coordinate)
+                return parent
+            result = licenses.pom_licenses(child, resolver)
+            self.assertEqual(result[0]['name'], 'Apache 2.0')
+            self.assertEqual(resolved, ['org.example:parent:1'])
+
     def test_unknown_license_requires_review(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

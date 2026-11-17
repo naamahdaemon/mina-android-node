@@ -7,8 +7,54 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+import urllib.request
+import urllib.error
+import urllib.parse
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def parent_pom(coordinate):
+    parts = coordinate.split(":")
+    if len(parts) != 3 or any(not re.fullmatch(r"[A-Za-z0-9_.-]+", part) for part in parts):
+        raise ValueError("Invalid parent POM coordinate")
+    group, artifact, version = parts
+    relative = f"{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.pom"
+    cache = ROOT / 'android/app/build/reports/licenses/parent-poms' / relative
+    if cache.is_file():
+        return cache
+    for repository in ('https://repo.maven.apache.org/maven2/', 'https://dl.google.com/dl/android/maven2/'):
+        try:
+            with urllib.request.urlopen(repository + relative, timeout=30) as response:
+                if urllib.parse.urlparse(response.url).hostname not in ('repo.maven.apache.org', 'dl.google.com'):
+                    raise ValueError('Unexpected parent POM redirect')
+                data = response.read(1024 * 1024 + 1)
+                if len(data) > 1024 * 1024:
+                    raise ValueError('Parent POM too large')
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(data)
+            return cache
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise
+    raise ValueError(f'Parent POM not found: {coordinate}')
+
+
+def pom_licenses(pom, resolver=parent_pom, depth=0):
+    if depth > 8:
+        raise ValueError('Parent POM inheritance exceeds limit')
+    ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+    def value(element, name):
+        return (element.findtext('m:' + name, namespaces=ns) or '').strip()
+    licenses = [{'name': value(item, 'name'), 'url': value(item, 'url')}
+                for item in pom.findall('m:licenses/m:license', ns)]
+    if licenses:
+        return licenses
+    parent = pom.find('m:parent', ns)
+    if parent is None:
+        return []
+    coordinate = ':'.join(value(parent, name) for name in ('groupId', 'artifactId', 'version'))
+    return pom_licenses(ET.parse(resolver(coordinate)).getroot(), resolver, depth + 1)
 
 
 def artifact_notices(path):
@@ -46,8 +92,7 @@ def generate(manifest, output, apache_license):
         ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
         def value(element, name):
             return (element.findtext('m:' + name, namespaces=ns) or '').strip()
-        licenses = [{'name': value(item, 'name'), 'url': value(item, 'url')}
-                    for item in pom.findall('m:licenses/m:license', ns)]
+        licenses = pom_licenses(pom)
         if not licenses or any(not item['name'] for item in licenses):
             raise ValueError(f"Missing license metadata: {row['coordinate']}")
         # Current runtime dependencies are Apache 2.0. Fail closed when a new license
