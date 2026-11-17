@@ -2,6 +2,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedArtifactResult
+import com.android.build.api.variant.HostTestBuilder
 import org.gradle.maven.MavenModule
 import org.gradle.maven.MavenPomArtifact
 
@@ -43,6 +44,14 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { jniLibs { useLegacyPackaging = true; keepDebugSymbols += "**/*.so" } }
     lint { abortOnError = true }
+}
+
+// AGP 9 creates unit tests only for the default tested build type unless enabled.
+// Keep exercising the non-debuggable distribution variant explicitly.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        requireNotNull(variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]).enable = true
+    }
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
