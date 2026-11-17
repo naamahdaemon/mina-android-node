@@ -114,7 +114,7 @@ jobs:
       - name: Install Android application SDK and native supervisor compiler
         run: |
           ndk=$(python3 -c 'import json; print(json.load(open("upstream.json"))["ndk"])')
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "platforms;android-37" "build-tools;36.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build and test application without rebuilding Rust
         env:
           MINA_SIGNING_KEYSTORE_BASE64: ${{ secrets.MINA_SIGNING_KEYSTORE_BASE64 }}

@@ -53,7 +53,7 @@ jobs:
           cache-provider: basic
           gradle-version: '9.6.0'
       - name: Install Android SDK
-        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;36.0.0"'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"'
       - name: Resolve runtime licenses without signing or native compilation
         run: |
           cd android
