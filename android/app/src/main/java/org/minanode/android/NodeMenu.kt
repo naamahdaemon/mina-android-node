@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -28,14 +27,15 @@ enum class NodePage(val title: Int) { NODE(R.string.node), MONITOR(R.string.moni
 fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val previousLabel = stringResource(R.string.menu_previous)
+    val nextLabel = stringResource(R.string.menu_next)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = context.getString(R.string.menu_previous) }
+            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = previousLabel }
                 .clickable(enabled = scroll.canScrollBackward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value - maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtLeast(0))
                 } }), contentAlignment = Alignment.CenterStart) {
-                Text("‹", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollBackward) 1f else 0.38f))
+                Text("â€¹", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollBackward) 1f else 0.38f))
             }
             Row(Modifier.weight(1f).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NodePage.entries.forEach { page ->
@@ -44,11 +44,11 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                     FilterChip(selected == page, { onSelect(page) }, modifier = Modifier.bringIntoViewRequester(requester), label = { Text(stringResource(page.title)) })
                 }
             }
-            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = context.getString(R.string.menu_next) }
+            Box(Modifier.width(24.dp).height(48.dp).semantics { contentDescription = nextLabel }
                 .clickable(enabled = scroll.canScrollForward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value + maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtMost(scroll.maxValue))
                 } }), contentAlignment = Alignment.CenterEnd) {
-                Text("›", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollForward) 1f else 0.38f))
+                Text("â€º", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollForward) 1f else 0.38f))
             }
         }
         if (scroll.maxValue > 0) {

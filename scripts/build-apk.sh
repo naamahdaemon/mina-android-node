@@ -33,6 +33,7 @@ python3 scripts/android-licenses.py android/app/build/reports/licenses/release-d
 cd android
 gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease \
   2>&1 | tee "$root/logs/apk-build.log"
+python3 "$root/scripts/verify-android-tests.py" app/build/test-results
 cp app/build/outputs/apk/release/app-release.apk "$root/dist/mina-android-release.apk"
 python3 - "$root/dist/mina-android-release.apk" <<'PY'
 import sys, zipfile

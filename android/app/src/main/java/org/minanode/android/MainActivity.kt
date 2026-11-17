@@ -78,6 +78,8 @@ class MainActivity : ComponentActivity() {
             }
             MinaTheme(dark, fullscreen) {
                 val context = LocalContext.current
+                val openNavigationLabel = stringResource(R.string.open_navigation)
+                val emptyLogsLabel = stringResource(R.string.logs_empty)
                 val state by NodeState.flow.collectAsStateWithLifecycle()
                 val store = remember { ProfileStore(this@MainActivity) }
                 val vault = remember { ProducerVault(this@MainActivity) }
@@ -151,7 +153,7 @@ class MainActivity : ComponentActivity() {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                             Row(Modifier.fillMaxWidth().then(titleSwipe), verticalAlignment = Alignment.CenterVertically) {
                                 if (hamburger) Box {
-                                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
+                                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = openNavigationLabel }) { Text("â˜°") }
                                     DropdownMenu(menuOpen, { menuOpen = false }) {
                                         NodePage.entries.forEach { target ->
                                             DropdownMenuItem(text = { Text(stringResource(target.title)) }, onClick = { select(target) })
@@ -184,7 +186,7 @@ class MainActivity : ComponentActivity() {
                                     Surface(Modifier.weight(1f).fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerLowest,
                                         shape = MaterialTheme.shapes.small, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                                         SelectionContainer(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-                                            Text(state.log.ifBlank { context.getString(R.string.logs_empty) }, fontFamily = FontFamily.Monospace,
+                                            Text(state.log.ifBlank { emptyLogsLabel }, fontFamily = FontFamily.Monospace,
                                                 style = MaterialTheme.typography.bodySmall)
                                         }
                                     }
@@ -213,7 +215,7 @@ class MainActivity : ComponentActivity() {
                         if (current == NodePage.NODE) {
                         Column(Modifier.fillMaxWidth().then(titleSwipe), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                             Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
-                            Text("${if (active) state.network else profile.network.cli} · ARM64 · ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                            Text("${if (active) state.network else profile.network.cli} Â· ARM64 Â· ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                         }
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -239,10 +241,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Metric(stringResource(R.string.height), state.status.height?.toString() ?: "—", Modifier.weight(1f))
+                            Metric(stringResource(R.string.height), state.status.height?.toString() ?: "â€”", Modifier.weight(1f))
                             Metric(stringResource(R.string.peers), state.status.peers.toString(), Modifier.weight(1f))
                         }
-                        Text(stringResource(R.string.block_age_uptime, state.status.ageSeconds?.toString() ?: "—", state.status.uptimeSeconds))
+                        Text(stringResource(R.string.block_age_uptime, state.status.ageSeconds?.toString() ?: "â€”", state.status.uptimeSeconds))
                         Text(stringResource(R.string.saved_state_api, state.status.persistence.resolve(context), NodeApi.PORT), style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.selected_mode, stringResource(if (profile.producer) R.string.producer_mode else R.string.observer_mode)), style = MaterialTheme.typography.bodySmall)
                         if (state.vpn) Card {
