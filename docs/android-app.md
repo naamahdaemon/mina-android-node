@@ -272,9 +272,14 @@ returns from Android dialogs or another app.
 
 While the producer service runs, every announced Scheduled slot is checked on
 poll. A separate default-importance notification channel alerts once during its
-last 60 seconds (including late discovery). Persisted network/slot/time keys avoid
+configured lead window (1–3600 seconds, default 60; including late discovery). Persisted network/slot/time keys avoid
 repeat alerts on restart, bounded to 256 keys. Overlapping opportunities are
 handled independently. Notifications expire at slot time and are cancelled when
 the schedule changes or the node stops. They require Android notification
 permission and an enabled channel; there is no exact alarm or guarantee of block
 production. Lock-screen public text omits the slot, network and time.
+
+The notification lead time is editable in Settings / Application settings in
+seconds. Save validates 1–3600 seconds and persists the value immediately. The
+producer service reads the current setting at each check, so no node restart is
+needed. Changing it does not replay alerts already sent for the same slot.

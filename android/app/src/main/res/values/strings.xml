@@ -226,8 +226,11 @@
     <string name="fullscreen">Full screen</string>
     <string name="fullscreen_help">Hide system bars. Swipe from an edge to reveal them temporarily.</string>
     <string name="production_alert_channel">Upcoming block production</string>
-    <string name="production_alert_help">An alert is sent during the minute before each announced won slot while the node is running. Allow notifications in Android settings. Late slot discovery may shorten the notice.</string>
+    <string name="production_alert_help">An alert is sent at the configured lead time before each announced won slot while the node is running. Allow notifications in Android settings. Late slot discovery may shorten the notice; already sent alerts are not repeated.</string>
     <string name="production_alert_title">Mina · Production approaching</string>
     <string name="production_alert_private">An upcoming production opportunity is scheduled.</string>
     <string name="production_alert_body">%1$s · slot %2$d in approximately %3$d seconds.</string>
+    <string name="production_alert_lead">Production alert lead time (seconds)</string>
+    <string name="production_alert_lead_range">1 to 3600 seconds. Default: 60. Tap Save to apply.</string>
+    <string name="production_alert_lead_current">Applied lead time: %1$d seconds</string>
 </resources>

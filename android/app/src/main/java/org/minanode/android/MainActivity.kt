@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var dark by remember { mutableStateOf(appearance.dark()) }
             var fullscreen by remember { mutableStateOf(appearance.fullscreen()) }
+            var alertLeadSeconds by remember { mutableIntStateOf(appearance.productionAlertLeadSeconds()) }
             DisposableEffect(dark, fullscreen) {
                 window.decorView.doOnAttach { view ->
                     val flags = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
@@ -189,10 +190,11 @@ class MainActivity : ComponentActivity() {
                                 .padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (current == NodePage.SETTINGS) NavigationSettings(appearance, hamburger, onHamburger = { hamburger = it; appearance.setHamburger(it) },
                             onAndroidSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) })
-                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart, fullscreen,
+                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart, fullscreen, alertLeadSeconds,
                             onLanguage = { appearance.setLanguage(it) },
                             onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) },
-                            onFullscreen = { appearance.setFullscreen(it); fullscreen = it })
+                            onFullscreen = { appearance.setFullscreen(it); fullscreen = it },
+                            onAlertLead = { appearance.setProductionAlertLeadSeconds(it); alertLeadSeconds = it })
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },

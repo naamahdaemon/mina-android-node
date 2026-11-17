@@ -7,6 +7,9 @@ import android.os.LocaleList
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +30,11 @@ class AppearancePreferences(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
     fun dark() = prefs.getBoolean("dark", true)
     fun setDark(value: Boolean) { prefs.edit().putBoolean("dark", value).apply() }
+    fun productionAlertLeadSeconds() = prefs.getInt("production-alert-lead-seconds", 60).coerceIn(1, 3600)
+    fun setProductionAlertLeadSeconds(value: Int) {
+        require(value in 1..3600)
+        prefs.edit().putInt("production-alert-lead-seconds", value).apply()
+    }
     fun fullscreen() = prefs.getBoolean("fullscreen", false)
     fun setFullscreen(value: Boolean) { prefs.edit().putBoolean("fullscreen", value).apply() }
     fun hamburger() = prefs.getBoolean("hamburger", false)
@@ -57,8 +65,10 @@ fun MinaTheme(dark: Boolean, fullscreen: Boolean = false, content: @Composable (
 }
 
 @Composable
-fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullscreen: Boolean,
-    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit) {
+fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullscreen: Boolean, alertLeadSeconds: Int,
+    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit, onAlertLead: (Int) -> Unit) {
+    var leadInput by rememberSaveable(alertLeadSeconds) { mutableStateOf(alertLeadSeconds.toString()) }
+    val parsedLead = leadInput.toIntOrNull()?.takeIf { it in 1..3600 }
     val darkLabel = stringResource(R.string.dark_theme)
     val fullscreenLabel = stringResource(R.string.fullscreen)
     Card(Modifier.fillMaxWidth()) {
@@ -87,6 +97,14 @@ fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullsc
                 Switch(fullscreen, onFullscreen, enabled = enabled,
                     modifier = Modifier.semantics { contentDescription = fullscreenLabel })
             }
+            OutlinedTextField(leadInput, { leadInput = it }, Modifier.fillMaxWidth(), enabled = enabled, singleLine = true,
+                label = { Text(stringResource(R.string.production_alert_lead)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = parsedLead == null,
+                supportingText = { Text(stringResource(R.string.production_alert_lead_range)) })
+            Text(stringResource(R.string.production_alert_lead_current, alertLeadSeconds), style = MaterialTheme.typography.bodySmall)
+            Button(enabled = enabled && parsedLead != null && parsedLead != alertLeadSeconds,
+                onClick = { parsedLead?.let(onAlertLead) }) { Text(stringResource(R.string.save)) }
             Text(stringResource(R.string.production_alert_help), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.appearance_help), style = MaterialTheme.typography.bodySmall)
         }

@@ -17,9 +17,11 @@ data class ProductionSlot(val slot: Long, val timeMs: Long) {
 }
 
 object ProductionAlertPolicy {
-    fun due(slots: List<ProductionSlot>, network: String, nowMs: Long, sent: Set<String>): List<ProductionSlot> =
-        slots.filter { it.slot >= 0 && it.timeMs - nowMs in 1..60000L && it.key(network) !in sent }
+    fun due(slots: List<ProductionSlot>, network: String, nowMs: Long, sent: Set<String>, leadSeconds: Int = 60): List<ProductionSlot> {
+        require(leadSeconds in 1..3600)
+        return slots.filter { it.slot >= 0 && it.timeMs - nowMs in 1..(leadSeconds * 1000L) && it.key(network) !in sent }
             .distinctBy { it.key(network) }.sortedBy { it.timeMs }
+    }
 }
 
 class ProductionAlerts(private val context: Context) {
@@ -38,7 +40,7 @@ class ProductionAlerts(private val context: Context) {
         val valid = slots.map { it.key(network) }.toSet()
         manager.activeNotifications.filter { it.notification.channelId == CHANNEL && it.tag !in valid }
             .forEach { manager.cancel(it.tag, it.id) }
-        ProductionAlertPolicy.due(slots, network, nowMs, sent).forEach { slot ->
+        ProductionAlertPolicy.due(slots, network, nowMs, sent, AppearancePreferences(context).productionAlertLeadSeconds()).forEach { slot ->
             val open = PendingIntent.getActivity(context, 2,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
