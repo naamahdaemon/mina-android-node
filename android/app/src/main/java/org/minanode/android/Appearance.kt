@@ -27,6 +27,8 @@ class AppearancePreferences(private val context: Context) {
     private val prefs = context.getSharedPreferences("appearance", Context.MODE_PRIVATE)
     fun dark() = prefs.getBoolean("dark", true)
     fun setDark(value: Boolean) { prefs.edit().putBoolean("dark", value).apply() }
+    fun fullscreen() = prefs.getBoolean("fullscreen", false)
+    fun setFullscreen(value: Boolean) { prefs.edit().putBoolean("fullscreen", value).apply() }
     fun hamburger() = prefs.getBoolean("hamburger", false)
     fun setHamburger(value: Boolean) { prefs.edit().putBoolean("hamburger", value).apply() }
     fun explorer() = prefs.getString("explorer", "https://minascan.io/{network}/block/{hash}/txs")!!
@@ -42,20 +44,23 @@ class AppearancePreferences(private val context: Context) {
         else android.R.style.Theme_Material_Light_NoActionBar
 }
 
+val LocalFullscreen = staticCompositionLocalOf { false }
+
 val LocalDarkTheme = staticCompositionLocalOf { true }
 
 @Composable
-fun MinaTheme(dark: Boolean, content: @Composable () -> Unit) {
+fun MinaTheme(dark: Boolean, fullscreen: Boolean = false, content: @Composable () -> Unit) {
     val colors = if (dark) darkColorScheme(primary = Color(0xFFBBAAFF),
         background = Color(0xFF101018), surface = Color(0xFF1C1C29))
     else lightColorScheme(primary = Color(0xFF6045A5), background = Color(0xFFFAF8FF), surface = Color(0xFFF2EDF8))
-    CompositionLocalProvider(LocalDarkTheme provides dark) { MaterialTheme(colorScheme = colors, content = content) }
+    CompositionLocalProvider(LocalDarkTheme provides dark, LocalFullscreen provides fullscreen) { MaterialTheme(colorScheme = colors, content = content) }
 }
 
 @Composable
-fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean,
-    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit) {
+fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullscreen: Boolean,
+    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit) {
     val darkLabel = stringResource(R.string.dark_theme)
+    val fullscreenLabel = stringResource(R.string.fullscreen)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.application_settings), style = MaterialTheme.typography.titleLarge)
@@ -74,6 +79,15 @@ fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean,
                 Switch(checked = dark, onCheckedChange = onDark, enabled = enabled,
                     modifier = Modifier.semantics { contentDescription = darkLabel })
             }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.fullscreen))
+                    Text(stringResource(R.string.fullscreen_help), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(fullscreen, onFullscreen, enabled = enabled,
+                    modifier = Modifier.semantics { contentDescription = fullscreenLabel })
+            }
+            Text(stringResource(R.string.production_alert_help), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.appearance_help), style = MaterialTheme.typography.bodySmall)
         }
     }

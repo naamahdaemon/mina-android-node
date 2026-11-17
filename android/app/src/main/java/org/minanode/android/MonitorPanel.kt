@@ -323,6 +323,7 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
     }
     val markers = listOfNotNull(block.proofStartMs, block.proofEndMs, block.committedMs, block.discardedMs)
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        FullscreenDialogWindow()
         Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

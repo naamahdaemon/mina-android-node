@@ -260,3 +260,18 @@ The archive retains at most 500 attempts and 16 MiB, pruning oldest slots first.
 Each load is bounded and malformed snapshots cannot prevent node startup. Details
 merge archived and current-run samples. General six-hour live charts remain in
 memory. Older productions without captured measurements cannot be reconstructed.
+
+Settings includes a persistent full-screen switch. It hides status/navigation
+bars using the attached native WindowInsetsController, with transient reveal
+from an edge swipe; cutout and keyboard safe insets remain respected. The block
+detail dialog follows the same choice. The activity reapplies it after focus
+returns from Android dialogs or another app.
+
+While the producer service runs, every announced Scheduled slot is checked on
+poll. A separate default-importance notification channel alerts once during its
+last 60 seconds (including late discovery). Persisted network/slot/time keys avoid
+repeat alerts on restart, bounded to 256 keys. Overlapping opportunities are
+handled independently. Notifications expire at slot time and are cancelled when
+the schedule changes or the node stops. They require Android notification
+permission and an enabled channel; there is no exact alarm or guarantee of block
+production. Lock-screen public text omits the slot, network and time.

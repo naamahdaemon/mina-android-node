@@ -30,9 +30,22 @@ data class MonitorState(
     val ramCapacityMiB: Double? = null,
     val productionSamples: Map<String, List<ResourceSample>> = emptyMap(),
     val resourceArchiveFailed: Boolean = false,
+    val upcomingSlots: List<ProductionSlot> = emptyList(),
 )
 
 object ProductionParser {
+    fun upcomingSlots(text: String, nowMs: Long = System.currentTimeMillis()): List<ProductionSlot> {
+        val attempts = JSONObject(text).optJSONArray("attempts") ?: return emptyList()
+        return (0 until attempts.length()).mapNotNull { i ->
+            val attempt = attempts.optJSONObject(i) ?: return@mapNotNull null
+            if (attempt.optString("status") != "Scheduled") return@mapNotNull null
+            val won = attempt.optJSONObject("won_slot") ?: return@mapNotNull null
+            val time = won.optLong("slot_time", -1) / 1_000_000
+            val slot = won.optLong("global_slot", -1)
+            if (time > nowMs && slot >= 0) ProductionSlot(slot, time) else null
+        }.distinct().sortedBy { it.timeMs }
+    }
+
     fun parse(text: String): Triple<List<ProducedBlock>, Long?, Long?> {
         val attempts = JSONObject(text).optJSONArray("attempts") ?: return Triple(emptyList(), null, null)
         val blocks = mutableListOf<ProducedBlock>()
@@ -107,12 +120,14 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
         val clock = System.currentTimeMillis()
         val samples = (state.samples + ResourceSample(clock, cpu, ram)).filter { it.timeMs >= clock - 6 * 3600_000L }.takeLast(21600)
         val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        var upcoming = emptyList<ProductionSlot>()
         var blocks = state.blocks; var nextSlot: Long? = null; var nextTime: Long? = null; var error: UiText? = null
         if (producer) {
             runCatching { NodeApi.get("stats/block_producer") }.onSuccess { text ->
                 runCatching { ProductionParser.parse(text) }.onSuccess { parsed ->
                     blocks = (parsed.first + blocks).distinctBy { it.id }.sortedByDescending { it.slot }.take(500)
                     nextSlot = parsed.second; nextTime = parsed.third
+                    upcoming = ProductionParser.upcomingSlots(text)
                     // Retain raw public production events, never keys or credentials.
                     if (text != lastResponse) runCatching {
                         val current = JSONObject(text).optJSONArray("attempts") ?: org.json.JSONArray()
@@ -145,7 +160,7 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
                 context.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(info)
                 info.totalMem / 1048576.0
             }.getOrNull(), productionSamples = if (producer) resources.capture(blocks, samples, clock) else resources.snapshot(),
-            resourceArchiveFailed = resources.writeFailed)
+            resourceArchiveFailed = resources.writeFailed, upcomingSlots = upcoming)
         return state
     }
 }

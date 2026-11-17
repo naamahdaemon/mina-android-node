@@ -27,6 +27,7 @@ class DashboardActivity : Activity() {
         super.onCreate(savedInstanceState)
         val root = FrameLayout(this)
         setContentView(root)
+        root.doOnAttach { applyFullscreen(it, AppearancePreferences(this).fullscreen()) }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())

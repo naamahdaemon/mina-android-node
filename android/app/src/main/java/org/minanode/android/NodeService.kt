@@ -30,6 +30,7 @@ class NodeService : Service() {
     private val lifecycle = Mutex()
     @Volatile private var child: java.lang.Process? = null
     private lateinit var files: NodeFiles
+    private lateinit var productionAlerts: ProductionAlerts
     private var wake: PowerManager.WakeLock? = null
     private var producerFile: File? = null
     @Volatile private var nodePid: Int? = null
@@ -39,6 +40,7 @@ class NodeService : Service() {
     override fun onCreate() {
         super.onCreate()
         files = NodeFiles(this)
+        productionAlerts = ProductionAlerts(this).also { it.createChannel() }
         requireNotNull(getSystemService(NotificationManager::class.java)).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW)
         )
@@ -154,6 +156,9 @@ class NodeService : Service() {
                             message = if (it.run == RunPhase.STOPPING) it.message
                                 else result.fold({ uiText(R.string.api_available) }, { uiText(R.string.api_pending, it.userText()) }))
                     }
+                    if (profile.producer && measured != null && measured.producerError == null && NodeState.flow.value.run == RunPhase.RUNNING) {
+                        runCatching { productionAlerts.check(profile.network.cli, measured.upcomingSlots) }
+                    }
                     if (SystemClock.elapsedRealtime() - lastWake > 5 * 60 * 1000L) {
                         wake?.acquire(10 * 60 * 1000L)
                         lastWake = SystemClock.elapsedRealtime()
@@ -201,6 +206,7 @@ class NodeService : Service() {
     }
 
     private fun requestStop() {
+        productionAlerts.cancel()
         LaunchGate.clear()
         NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = uiText(R.string.clean_stop)) }
         scope.launch {
@@ -224,6 +230,7 @@ class NodeService : Service() {
     }
 
     override fun onDestroy() {
+        productionAlerts.cancel()
         LaunchGate.clear()
         // EOF tells the supervisor to stop the node even if Android destroys
         // the service without an explicit Stop action.
@@ -252,6 +259,7 @@ class NodeService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        productionAlerts.createChannel()
         val manager = requireNotNull(getSystemService(NotificationManager::class.java))
         manager.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW))
         if (child != null && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {

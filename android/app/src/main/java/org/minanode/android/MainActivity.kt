@@ -63,14 +63,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var dark by remember { mutableStateOf(appearance.dark()) }
-            DisposableEffect(dark) {
+            var fullscreen by remember { mutableStateOf(appearance.fullscreen()) }
+            DisposableEffect(dark, fullscreen) {
                 window.decorView.doOnAttach { view ->
                     val flags = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                     view.windowInsetsController?.setSystemBarsAppearance(if (dark) 0 else flags, flags)
+                    applyFullscreen(view, fullscreen)
                 }
                 onDispose { }
             }
-            MinaTheme(dark) {
+            MinaTheme(dark, fullscreen) {
                 val context = LocalContext.current
                 val state by NodeState.flow.collectAsStateWithLifecycle()
                 val store = remember { ProfileStore(this@MainActivity) }
@@ -184,9 +186,10 @@ class MainActivity : ComponentActivity() {
                                 .padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (current == NodePage.SETTINGS) NavigationSettings(appearance, hamburger, onHamburger = { hamburger = it; appearance.setHamburger(it) },
                             onAndroidSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) })
-                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart,
+                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart, fullscreen,
                             onLanguage = { appearance.setLanguage(it) },
-                            onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) })
+                            onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) },
+                            onFullscreen = { appearance.setFullscreen(it); fullscreen = it })
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -294,6 +297,11 @@ class MainActivity : ComponentActivity() {
         dialog.show()
         input.requestFocus()
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) window.decorView.doOnAttach { applyFullscreen(it, AppearancePreferences(this).fullscreen()) }
     }
 
     override fun onDestroy() {

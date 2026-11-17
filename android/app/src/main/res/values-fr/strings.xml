@@ -223,4 +223,11 @@
 <string name="no_measurements_period">Aucune mesure sur cette période. Utilisez Direct / réinitialiser pour revenir aux données récentes.</string>
     <string name="dashboard_navigation_help">Les gestes du dashboard restent dans le dashboard. Glissez sur l’en-tête MINA / ANDROID pour changer de page.</string>
     <string name="resource_archive_failed">Certaines mesures de production n’ont pas pu être sauvegardées. Vérifiez l’espace disponible ; les mesures en direct restent disponibles.</string>
+    <string name="fullscreen">Plein écran</string>
+    <string name="fullscreen_help">Masquer les barres système. Glissez depuis un bord pour les afficher temporairement.</string>
+    <string name="production_alert_channel">Production de bloc à venir</string>
+    <string name="production_alert_help">Une alerte est envoyée dans la minute précédant chaque slot gagné annoncé, lorsque le nœud fonctionne. Autorisez les notifications dans les réglages Android. Un slot découvert tardivement peut réduire le préavis.</string>
+    <string name="production_alert_title">Mina · Production imminente</string>
+    <string name="production_alert_private">Une opportunité de production approche.</string>
+    <string name="production_alert_body">%1$s · slot %2$d dans environ %3$d secondes.</string>
 </resources>
