@@ -53,10 +53,11 @@ fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explor
     val lastPage = BlockPages.count(state.blocks.size) - 1
     LaunchedEffect(lastPage) { page = page.coerceAtMost(lastPage) }
     selected?.let { old -> BlockDetail(state.blocks.firstOrNull { it.id == old.id } ?: old, state, network, explorer, autoscale, running) { selected = null } }
-    val bounds = state.samples.let { if (it.isEmpty()) 0L..0L else window.bounds(it.first().timeMs, it.last().timeMs) }
-    val visible = state.samples.filter { it.timeMs in bounds }
+    val viewport = ResourceViewport.select(state.samples, window)
+    val bounds = viewport.bounds
+    val visible = viewport.samples
     val gestures = chartGestures { zoom, pan, anchor ->
-        if (state.samples.size > 1) window = window.transform(state.samples.first().timeMs, state.samples.last().timeMs, zoom, pan, anchor)
+        window = window.transform(viewport.recording.first, viewport.recording.last, zoom, pan, anchor)
     }
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
@@ -116,7 +117,7 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
     Text(title, style = MaterialTheme.typography.labelMedium)
     val values = samples.map { valueOf(it)?.takeIf { value -> value.isFinite() } }
     if (values.all { it == null }) {
-        Text(stringResource(R.string.waiting_measurements), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.no_measurements_period), style = MaterialTheme.typography.bodySmall)
         return
     }
     val maximum = fixedMaximum?.takeIf { it.isFinite() && it > 0 } ?: ResourceChartScale.maximum(values)

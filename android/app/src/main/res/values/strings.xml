@@ -220,4 +220,6 @@
     <string name="canonical_unavailable">This height is no longer available in the node’s current chain. The node only retains its recent frontier.</string>
     <string name="canonical_lookup_failed">Could not look up this height. Check that the node is running and its local API is available.</string>
     <string name="error_explorer_open">Could not open the selected block explorer.</string>
+<string name="no_measurements_period">No measurements in this period. Use Live / reset to return to the latest data.</string>
+    <string name="dashboard_navigation_help">Dashboard gestures stay inside the dashboard. Swipe the MINA / ANDROID header to switch pages.</string>
 </resources>

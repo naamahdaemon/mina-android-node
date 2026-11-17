@@ -61,6 +61,37 @@ class MonitorInteractionTest {
         assertNull(NodeApi.parseBestChainHash("""{"headers":[]}""", 42))
         assertNull(NodeApi.parseBestChainHash(reply.replace(hash, "invalid"), 42))
     }
+    @Test fun startupZoomCannotFreezeAnIntervalWithoutMeasurements() {
+        val first = 1790000000000L
+        val samples = listOf(ResourceSample(first, null, null), ResourceSample(first + 1000, null, null),
+            ResourceSample(first + 10000, 6.6, 1262.3))
+        val view = ResourceViewport.select(samples, ChartWindow())
+        assertEquals(listOf(samples.last()), view.samples)
+        val zoom = ChartWindow().transform(view.recording.first, view.recording.last, 2f, 0f, 0.5f)
+        assertEquals(ChartWindow(), zoom)
+        val later = samples + ResourceSample(first + 20000, 10.0, 1300.0)
+        assertEquals(later.last(), ResourceViewport.select(later, zoom).samples.last())
+    }
+    @Test fun restoringAnExpiredViewportKeepsZoomButReturnsToMeasuredData() {
+        val first = 1790000000000L
+        val samples = (0..10).map { ResourceSample(first + it * 1000, 6.6, 1262.3) }
+        val oldWindow = ChartWindow(5000, 100000, first - 60000)
+        val view = ResourceViewport.select(samples, oldWindow)
+        assertEquals((first + 5000)..(first + 10000), view.bounds)
+        assertEquals(samples.last(), view.samples.last())
+        assertEquals(6, view.samples.size)
+        val future = ResourceViewport.select(samples, oldWindow.copy(endTimeMs = first + 60000))
+        assertEquals(view.bounds, future.bounds)
+    }
+    @Test fun measuredViewportPreservesAValidHistoricalZoomAndRealGaps() {
+        val samples = (0..20).map { ResourceSample(it * 1000L, if (it in 7..13) null else 5.0, if (it in 7..13) null else 1000.0) }
+        val window = ChartWindow(5000, 0, 13000)
+        val view = ResourceViewport.select(samples, window)
+        assertEquals(8000L..13000L, view.bounds)
+        assertEquals(6, view.samples.size)
+        assertTrue(view.samples.all { it.cpu == null && it.ramMiB == null })
+        assertEquals(view.bounds, ResourceViewport.select(samples + ResourceSample(21000, 5.0, 1000.0), window).bounds)
+    }
     @Test fun navigationOrderIsStable() {
         assertEquals(listOf("NODE", "MONITOR", "DASHBOARD", "SETTINGS", "JOURNAL"), NodePage.entries.map { it.name })
     }

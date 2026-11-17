@@ -16,6 +16,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -83,6 +86,8 @@ class MainActivity : ComponentActivity() {
                 var hamburger by remember { mutableStateOf(appearance.hamburger()) }
                 var menuOpen by remember { mutableStateOf(false) }
                 val page = NodePage.entries[pager.currentPage]
+                val dashboardGestures = NodePage.entries[pager.settledPage] == NodePage.DASHBOARD
+                val headerSwipeThreshold = with(LocalDensity.current) { 80.dp.toPx() }
                 fun select(target: NodePage) { menuOpen = false; scope.launch { pager.animateScrollToPage(target.ordinal) } }
                 BackHandler(enabled = menuOpen || pager.currentPage != 0) { if (menuOpen) menuOpen = false else select(NodePage.NODE) }
                 val importKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -122,7 +127,16 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().pointerInput(dashboardGestures) {
+                                if (dashboardGestures) {
+                                    var distance = 0f
+                                    detectHorizontalDragGestures(onDragStart = { distance = 0f }, onDragCancel = { distance = 0f },
+                                        onDragEnd = {
+                                            if (distance > headerSwipeThreshold) select(NodePage.MONITOR)
+                                            else if (distance < -headerSwipeThreshold) select(NodePage.SETTINGS)
+                                        }) { change, amount -> change.consume(); distance += amount }
+                                }
+                            }, verticalAlignment = Alignment.CenterVertically) {
                                 if (hamburger) Box {
                                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = context.getString(R.string.open_navigation) }) { Text("☰") }
                                     DropdownMenu(menuOpen, { menuOpen = false }) {
@@ -136,9 +150,11 @@ class MainActivity : ComponentActivity() {
                                 SlotIndicator(state.monitor, active && profile.producer)
                             }
                             if (!hamburger) NodeMenu(page, onSelect = { select(it) })
+                            if (dashboardGestures) Text(stringResource(R.string.dashboard_navigation_help),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { NodePage.entries[it].name },
-                            flingBehavior = deliberatePagerFling(pager)) { index ->
+                            flingBehavior = deliberatePagerFling(pager), userScrollEnabled = !dashboardGestures) { index ->
                             val current = NodePage.entries[index]
                             if (current == NodePage.DASHBOARD) {
                                 if (state.run == RunPhase.RUNNING) AndroidView(

@@ -220,4 +220,6 @@
     <string name="canonical_unavailable">Cette hauteur n’est plus disponible dans la chaîne actuelle du nœud. Le nœud ne conserve que sa frontière récente.</string>
     <string name="canonical_lookup_failed">Impossible de rechercher cette hauteur. Vérifiez que le nœud fonctionne et que son API locale est disponible.</string>
     <string name="error_explorer_open">Impossible d’ouvrir l’explorateur sélectionné.</string>
+<string name="no_measurements_period">Aucune mesure sur cette période. Utilisez Direct / réinitialiser pour revenir aux données récentes.</string>
+    <string name="dashboard_navigation_help">Les gestes du dashboard restent dans le dashboard. Glissez sur l’en-tête MINA / ANDROID pour changer de page.</string>
 </resources>

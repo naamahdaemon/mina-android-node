@@ -239,3 +239,14 @@ the configured explorer by hash. The network is checked before and after lookup.
 This is the node's current chain, subject to reorganization, not an external
 finality guarantee. Heights outside its retained frontier show an unavailable
 message rather than silently selecting another block.
+
+Resource viewports now use the measured interval, excluding empty startup samples.
+Zooming before five seconds of measurements leaves live mode intact. A restored
+viewport outside the available recording returns to recent data while retaining
+its zoom span. Real gaps inside a selected period remain missing and have an
+explicit message with the live/reset recovery action.
+
+On Dashboard, the outer pager leaves all content gestures to the WebView. This
+prevents diagonal vertical scrolls and internal charts from changing app pages.
+Navigation remains available in the menu and by a deliberate 80 dp horizontal
+swipe on the fixed MINA / ANDROID header. Other pages retain normal pager swipes.

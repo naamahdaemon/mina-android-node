@@ -87,12 +87,16 @@ data class ChartWindow(val spanMs: Long = 0, val offsetMs: Long = 0, val endTime
         if (last <= first) return first..first
         val available = (last - first).coerceAtLeast(1)
         val span = if (spanMs == 0L) available else spanMs.coerceIn(minOf(5000, available), available)
-        val end = (endTimeMs ?: (last - offsetMs.coerceIn(0, (available - span).coerceAtLeast(0)))).coerceIn(first, last)
+        // A restored view can outlive its recording (restart, retention, clock correction).
+        // Follow the latest data in that case, retaining the selected zoom span.
+        val requestedEnd = endTimeMs?.takeIf { it in first..last } ?: if (endTimeMs != null) last
+            else last - offsetMs.coerceIn(0, (available - span).coerceAtLeast(0))
+        val end = requestedEnd.coerceIn(first, last)
             .coerceAtLeast(first + span).coerceAtMost(last)
         return (end - span).coerceAtLeast(first)..end
     }
     fun transform(first: Long, last: Long, zoom: Float, panFraction: Float, anchor: Float): ChartWindow {
-        if (last <= first || !zoom.isFinite() || !panFraction.isFinite() || !anchor.isFinite()) return this
+        if (last - first < 5000 || (zoom == 1f && panFraction == 0f) || !zoom.isFinite() || !panFraction.isFinite() || !anchor.isFinite()) return this
         val old = bounds(first, last)
         val available = (last - first).coerceAtLeast(1)
         val span = ((old.last - old.first).toDouble() / zoom.coerceIn(0.1f, 10f).toDouble()).toLong().coerceIn(minOf(5000, available), available)
@@ -116,3 +120,18 @@ val ChartWindowSaver = Saver<ChartWindow, LongArray>(
     save = { longArrayOf(it.spanMs, it.offsetMs, it.endTimeMs ?: Long.MIN_VALUE) },
     restore = { ChartWindow(it[0], it[1], it[2].takeUnless { value -> value == Long.MIN_VALUE }) },
 )
+
+/** Ignore the startup interval with no measurements when defining the navigable recording. */
+data class ResourceViewport(val recording: LongRange, val bounds: LongRange, val samples: List<ResourceSample>) {
+    companion object {
+        fun select(samples: List<ResourceSample>, window: ChartWindow): ResourceViewport {
+            val ordered = samples.sortedBy { it.timeMs }
+            fun measured(sample: ResourceSample) = sample.cpu?.isFinite() == true || sample.ramMiB?.isFinite() == true
+            val first = ordered.firstOrNull(::measured)?.timeMs
+            val last = ordered.lastOrNull(::measured)?.timeMs
+            if (first == null || last == null) return ResourceViewport(0L..0L, 0L..0L, emptyList())
+            val bounds = window.bounds(first, last)
+            return ResourceViewport(first..last, bounds, ordered.filter { it.timeMs in bounds })
+        }
+    }
+}
