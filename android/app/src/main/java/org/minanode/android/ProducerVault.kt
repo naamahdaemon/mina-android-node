@@ -32,19 +32,24 @@ class ProducerVault(private val context: Context) {
     fun import(network: MinaNetwork, uri: Uri) {
         val bytes = requireNotNull(context.contentResolver.openInputStream(uri)).use { it.readNBytes(65537) }
         try {
-            requireUi(bytes.size in 1..65536, R.string.error_key_large)
-            val json = runCatching { JSONObject(bytes.toString(Charsets.UTF_8)) }
-                .getOrElse { throw UiException(uiText(R.string.error_key_json)) }
-            requireUi(json.optString("box_primitive") == "xsalsa20poly1305" && json.optString("pw_primitive") == "argon2i", R.string.error_key_format)
-            for (name in listOf("nonce", "pwsalt", "ciphertext")) requireUi(json.optString(name).isNotBlank(), R.string.error_key_incomplete)
-            val costs = json.optJSONArray("pwdiff") ?: throw UiException(uiText(R.string.error_key_cost_missing))
-            requireUi(costs.length() == 2 && costs.optLong(0) in 1..268435456 && costs.optLong(1) in 1..16, R.string.error_key_cost)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
-            val wrapped = byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + cipher.doFinal(bytes)
-            val target = AtomicFile(file(network))
-            val stream = target.startWrite()
-            try { stream.write(wrapped); target.finishWrite(stream) } catch (error: Exception) { target.failWrite(stream); throw error }
+            storeEncrypted(network, bytes)
         } finally { bytes.fill(0) }
+    }
+
+    /** Caller owns the encrypted JSON buffer; no plaintext Mina key enters this vault. */
+    fun storeEncrypted(network: MinaNetwork, bytes: ByteArray) {
+        requireUi(bytes.size in 1..65536, R.string.error_key_large)
+        val json = runCatching { JSONObject(bytes.toString(Charsets.UTF_8)) }
+            .getOrElse { throw UiException(uiText(R.string.error_key_json)) }
+        requireUi(json.optString("box_primitive") == "xsalsa20poly1305" && json.optString("pw_primitive") == "argon2i", R.string.error_key_format)
+        for (name in listOf("nonce", "pwsalt", "ciphertext")) requireUi(json.optString(name).isNotBlank(), R.string.error_key_incomplete)
+        val costs = json.optJSONArray("pwdiff") ?: throw UiException(uiText(R.string.error_key_cost_missing))
+        requireUi(costs.length() == 2 && costs.optLong(0) in 1..268435456 && costs.optLong(1) in 1..16, R.string.error_key_cost)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
+        val wrapped = byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + cipher.doFinal(bytes)
+        val target = AtomicFile(file(network))
+        val stream = target.startWrite()
+        try { stream.write(wrapped); target.finishWrite(stream) } catch (error: Exception) { target.failWrite(stream); throw error }
     }
 
     /** This temporary file is still password-encrypted Mina JSON, never plaintext key material. */

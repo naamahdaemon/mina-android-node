@@ -1,0 +1,64 @@
+diff --git a/crates/cli/src/commands/wallet/generate.rs b/crates/cli/src/commands/wallet/generate.rs
+--- a/crates/cli/src/commands/wallet/generate.rs
++++ b/crates/cli/src/commands/wallet/generate.rs
+@@ -22,6 +22,10 @@
+     #[arg(long, alias = "file", short_alias = 'f', value_name = "FILE")]
+     pub output: PathBuf,
+ 
++    /// Private Android key creation: password in a framed stdin pipe, keys in a framed stdout pipe.
++    #[arg(long, hide = true)]
++    pub android_credentials_stdin: bool,
++
+     /// Encrypt this secret key instead of a new one.
+     #[arg(
+         long,
+@@ -54,6 +58,12 @@
+ 
+ impl Generate {
+     pub fn run(self) -> anyhow::Result<()> {
++        if self.android_credentials_stdin {
++            #[cfg(target_os = "android")]
++            return self.run_android();
++            #[cfg(not(target_os = "android"))]
++            anyhow::bail!("Android key generation input is unavailable on this platform");
++        }
+         debug_assert!(self.password.is_none() && self.password_flag.is_none());
+         let password = crate::commands::secret_value::password_from_env("MINA_PRIVKEY_PASS")?;
+         // The older variable is read only when neither `--secret-key` nor
+@@ -64,6 +74,28 @@
+             None => crate::commands::secret_value::account_key_from_env(OLD_SECRET_KEY_ENV)?,
+         };
+         self.run_to(&mut std::io::stdout().lock(), &password, old_secret_key)
++    }
++
++    #[cfg(target_os = "android")]
++    fn run_android(mut self) -> anyhow::Result<()> {
++        anyhow::ensure!(self.secret_key.is_none(), "Android generation requires a new random key");
++        let password = crate::android_credentials::read_password(&mut std::io::stdin())
++            .map_err(|_| anyhow::anyhow!("Android credential bootstrap failed"))?;
++        anyhow::ensure!(!password.is_empty(), "a non-empty password is required");
++        let key = AccountSecretKey::rand();
++        let public = key.public_key().to_string();
++        let secret = zeroize::Zeroizing::new(key.to_string());
++        self.secret_key = Some(key);
++        // Reuse the ordinary wallet command's encryption, permissions and no-overwrite checks.
++        self.run_to(&mut std::io::sink(), &password, None)?;
++        // Explicit private mode only; ordinary wallet generate still never prints the secret.
++        let mut out = std::io::stdout().lock();
++        for value in [public.as_bytes(), secret.as_bytes()] {
++            out.write_all(&(value.len() as u32).to_le_bytes())?;
++            out.write_all(value)?;
++        }
++        out.flush()?;
++        Ok(())
+     }
+ 
+     /// OCaml: <https://github.com/MinaProtocol/mina/blob/84b8d96954b218f372b93f65a071abf528e6bb61/src/lib/cli_lib/commands.ml#L9-L23>
+@@ -117,6 +149,7 @@
+         Generate {
+             output,
+             secret_key,
++            android_credentials_stdin: false,
+             password: None,
+             password_flag: None,
+         }

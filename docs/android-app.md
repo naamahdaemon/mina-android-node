@@ -283,3 +283,34 @@ The notification lead time is editable in Settings / Application settings in
 seconds. Save validates 1–3600 seconds and persists the value immediately. The
 producer service reads the current setting at each check, so no node restart is
 needed. Changing it does not replay alerts already sent for the same slot.
+
+The stopped BP profile can open Generate a new key. The dedicated non-exported
+activity uses FLAG_SECURE, disables password autofill/content capture and saved
+text, confirms a 12–4096 character password twice, then repeats the recovery and
+account-creation warnings. No funding transaction is initiated. Account creation
+costs 1 MINA from first funding, so the UI recommends funding more than 1 MINA to
+leave a balance and explains that stake/epoch eligibility is separate.
+
+Patch 0004 adds a hidden Android-only input mode to `mina wallet generate`. The
+existing wallet encryption and no-overwrite logic is reused. Password input uses
+the existing bounded UTF-8 private stdin frame; public/private Base58 strings are
+returned in two bounded little-endian frames through stdout, never the node log.
+The normal CLI behavior is unchanged. The app clears inherited MINA_* variables,
+discards stderr, bounds execution to 60 seconds and never puts secrets in argv,
+Intents, saved state, analytics or plaintext files. Managed-runtime display and
+clipboard copies cannot carry a guarantee of complete heap erasure.
+
+The user explicitly acknowledges the one-time reveal. Closing or backgrounding
+clears the private view; a resumed workflow only offers the encrypted file.
+Copying the private key has a separate warning, marks the clipboard sensitive and
+attempts cleanup after 60 seconds only if that clip has not been replaced. Clipboard
+exposure to user-installed keyboards/accessibility services remains possible.
+
+The pending encrypted file stays under noBackupFilesDir/generated-wallets/<network>
+until exported and explicitly finished, allowing recovery after Activity/process
+loss without redisplaying plaintext. A new generation never overwrites pending
+output. Applying to BP is optional, rechecks that the node is stopped, warns before
+replacing an existing network vault, and uses the same Android Keystore wrapper as
+import. Export always uses Android's document picker and writes only Mina's
+encrypted JSON. Keep its password separately. An app uninstall clears any pending
+private-storage copy; the external backup survives.

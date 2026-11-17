@@ -47,6 +47,12 @@ class PatchSeriesTest(unittest.TestCase):
                 self.assertRegex(root, r'#\[cfg\(target_os = "android"\)\]\s+mod android_credentials;', entry)
             node = (target / "crates/cli/src/commands/node/mod.rs").read_text(encoding="utf-8")
             self.assertIn('"0.12345678é"', node)
+            wallet = (target / "crates/cli/src/commands/wallet/generate.rs").read_text(encoding="utf-8")
+            self.assertIn("pub android_credentials_stdin: bool", wallet)
+            self.assertIn("fn run_android(mut self)", wallet)
+            self.assertIn("self.run_to(&mut std::io::sink()", wallet)
+            self.assertIn("android_credentials_stdin: false", wallet)
+
 
 
 if __name__ == "__main__":

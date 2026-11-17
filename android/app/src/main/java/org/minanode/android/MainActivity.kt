@@ -117,6 +117,9 @@ class MainActivity : ComponentActivity() {
                         NodeState.message(result.fold({ uiText(R.string.key_imported) }, { uiText(R.string.import_failed, it.userText()) }))
                     }
                 }
+                val generateKey = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                    hasKey = vault.exists(profile.network)
+                }
                 val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { continueStart() }
                 val owner = LocalLifecycleOwner.current
                 DisposableEffect(owner) {
@@ -198,6 +201,10 @@ class MainActivity : ComponentActivity() {
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                            onGenerate = {
+                                generateKey.launch(Intent(this@MainActivity, KeyGenerationActivity::class.java)
+                                    .putExtra(KeyGenerationActivity.NETWORK, profile.network.name))
+                            },
                             onRemove = { vault.remove(profile.network); hasKey = false },
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })

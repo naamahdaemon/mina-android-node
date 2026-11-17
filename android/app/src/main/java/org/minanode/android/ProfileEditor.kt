@@ -14,7 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 @Composable
 fun ProfileEditor(profile: NodeProfile, enabled: Boolean, hasKey: Boolean,
     onChange: (NodeProfile) -> Unit, onNetwork: (MinaNetwork) -> Unit,
-    onImport: () -> Unit, onRemove: () -> Unit, onSave: () -> Unit) {
+    onImport: () -> Unit, onGenerate: () -> Unit, onRemove: () -> Unit, onSave: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.node_profile), style = MaterialTheme.typography.titleLarge)
@@ -32,6 +32,7 @@ fun ProfileEditor(profile: NodeProfile, enabled: Boolean, hasKey: Boolean,
                 TextButton(enabled = enabled, onClick = onImport) { Text(if (hasKey) stringResource(R.string.replace_key) else stringResource(R.string.import_key)) }
                 if (hasKey) TextButton(enabled = enabled, onClick = onRemove) { Text(stringResource(R.string.remove_key)) }
             }
+            if (profile.producer) OutlinedButton(enabled = enabled, onClick = onGenerate) { Text(stringResource(R.string.wallet_generate_button)) }
             Text(stringResource(R.string.password_each_start), style = MaterialTheme.typography.bodySmall)
             if (profile.producer) {
                 OutlinedTextField(profile.coinbaseReceiver, { onChange(profile.copy(coinbaseReceiver = it.trim())) },
