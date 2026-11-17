@@ -27,19 +27,27 @@ if grep -q 'libc++_shared.so' logs/apk-native-dependencies.log; then
   cp "$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$native/"
 fi
 cd android
-gradle --no-daemon --console=plain testDebugUnitTest lintDebug assembleDebug \
+gradle --no-daemon --console=plain :app:exportReleaseDependencies
+cd "$root"
+python3 scripts/android-licenses.py android/app/build/reports/licenses/release-dependencies.json
+cd android
+gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease \
   2>&1 | tee "$root/logs/apk-build.log"
-cp app/build/outputs/apk/debug/app-debug.apk "$root/dist/mina-android-devnet-debug.apk"
-python3 - "$root/dist/mina-android-devnet-debug.apk" <<'PY'
+cp app/build/outputs/apk/release/app-release.apk "$root/dist/mina-android-release.apk"
+python3 - "$root/dist/mina-android-release.apk" <<'PY'
 import sys, zipfile
 with zipfile.ZipFile(sys.argv[1]) as apk:
     for name in ("lib/arm64-v8a/libmina.so", "lib/arm64-v8a/libminasupervisor.so", "assets/node/LICENSE"):
         assert apk.getinfo(name).file_size > 0, name
-print("APK native executables and license verified")
+    assert apk.getinfo("assets/app-licenses/ANDROID-DEPENDENCIES.json").file_size > 0
+    assert apk.getinfo("assets/app-licenses/ANDROID-THIRD-PARTY-NOTICES.txt").file_size > 0
+print("APK native executables and licenses verified")
 PY
+"$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$root/dist/mina-android-release.apk" > "$root/logs/apk-badging.txt"
+python3 "$root/scripts/verify-apk-release.py" "$root/logs/apk-badging.txt"
 cd "$root/dist"
 {
-  printf 'Version code: %s\nVersion name: %s\nApp source: %s\n' "$APK_VERSION_CODE" "$APK_VERSION_NAME" "${GITHUB_SHA:-local}"
-  "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs mina-android-devnet-debug.apk
+  printf 'Build type: release\nDebuggable: false\nVersion code: %s\nVersion name: %s\nApp source: %s\n' "$APK_VERSION_CODE" "$APK_VERSION_NAME" "${GITHUB_SHA:-local}"
+  "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs mina-android-release.apk
 } > APK-BUILD-INFO.txt
-sha256sum mina-android-devnet-debug.apk > APK-SHA256SUMS
+sha256sum mina-android-release.apk > APK-SHA256SUMS

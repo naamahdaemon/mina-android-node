@@ -4,13 +4,15 @@
 
 ## Install and update
 
-Download `mina-android-devnet-apk` from a successful [Actions run](https://github.com/naamahdaemon/mina-android-node/actions). Extract the ZIP before opening `mina-android-devnet-debug.apk`. The historical names do not restrict the application to devnet: mainnet is also selectable.
+Download `mina-android-devnet-apk` from a successful [Actions run](https://github.com/naamahdaemon/mina-android-node/actions). Extract the ZIP before opening `mina-android-release.apk`. The historical names do not restrict the application to devnet: mainnet is also selectable.
+
+New artifacts contain a signed, non-debuggable **release** APK. Older debug artifacts cannot be used by the release-publication workflow. The existing certificate is retained so this build-type change does not require uninstalling the app.
 
 The artifact contains:
 
 | File | Purpose |
 | --- | --- |
-| `mina-android-devnet-debug.apk` | Installable application. |
+| `mina-android-release.apk` | Installable application. |
 | `APK-SHA256SUMS` | APK checksum. |
 | `APK-BUILD-INFO.txt` | App version, source/build information and signing certificate fingerprints. |
 
@@ -57,7 +59,7 @@ The password entry disables saved text, autofill and screenshots. Buffers are cl
 
 With the node stopped and block production enabled, choose **Generate a new key**.
 
-1. Read the recovery warnings and enter and confirm a password of 12–4096 characters. A further confirmation repeats the warning before generation.
+1. Read the recovery warnings and enter and confirm a password of 12â€“4096 characters. A further confirmation repeats the warning before generation.
 2. The app invokes the native client's wallet generator through a private input/output channel, using Mina's encrypted key-file format. Passwords and plaintext keys are not written to the node log or plaintext files.
 3. Explicitly acknowledge the one-time reveal to view the public address and plaintext private key. Copy controls are available; copying the private key requires another warning.
 4. Optionally apply the generated encrypted file to the current network's producer profile. Replacing an existing key requires confirmation; the node must still be stopped.
@@ -73,7 +75,7 @@ The generation feature has passed CI checks; its complete device flow still need
 
 ## Navigation and appearance
 
-The fixed header contains **MINA / ANDROID** and the next announced won slot. Navigation below it follows **Node → Monitor → Dashboard → Settings → Logs**. Choose horizontal navigation or a hamburger menu in Settings. Horizontal navigation keeps arrow controls without a scrollbar. Android application settings are linked inside Settings.
+The fixed header contains **MINA / ANDROID** and the next announced won slot. Navigation below it follows **Node â†’ Monitor â†’ Dashboard â†’ Settings â†’ Logs**. Choose horizontal navigation or a hamburger menu in Settings. Horizontal navigation keeps arrow controls without a scrollbar. Android application settings are linked inside Settings.
 
 A deliberate horizontal swipe on the title/header changes pages. Other screens also support body swipes where their controls do not consume gestures. Dashboard content keeps its own gestures to avoid switching pages during vertical scrolling or chart interaction; use the header or menu there.
 
@@ -108,7 +110,7 @@ The hash-based explorer link uses Minascan by default. Settings accepts a custom
 
 The header shows the next announced won slot with a countdown and progress over the final hour: green, amber below five minutes, red below one minute.
 
-In **Settings → Application settings**, set the notification lead time to **1–3600 seconds** (default 60) and save. The running service reads the new setting without restarting. Each announced scheduled slot is checked independently; notifications are deduplicated, expire at slot time and are cancelled when the schedule changes or the node stops. Changing the lead time does not replay alerts already sent for that slot.
+In **Settings â†’ Application settings**, set the notification lead time to **1â€“3600 seconds** (default 60) and save. The running service reads the new setting without restarting. Each announced scheduled slot is checked independently; notifications are deduplicated, expire at slot time and are cancelled when the schedule changes or the node stops. Changing the lead time does not replay alerts already sent for that slot.
 
 Android notification permission and the production-alert channel must be enabled. Late slot discovery, polling, OS scheduling and device suspension may shorten or prevent an alert. There is no exact-alarm or production guarantee. Public lock-screen text omits the slot, network and time.
 
@@ -137,16 +139,16 @@ The explicitly started foreground service uses Android's `specialUse` type and h
 
 Build Android binaries through GitHub Actions, rather than locally. The full **Android native prototype** workflow validates Kotlin/lint and the supervisor before the expensive Rust build, uploads `mina-android-arm64`, then builds the APK.
 
-For application-only work, run **Android application only**. Leave `native_run_id` empty to select an available compatible native artifact from `main`, or provide a native workflow run ID from `main`. Checksums, ancestry and native-input compatibility are checked. A stale, missing or expired artifact requires running the full workflow first. There is no Rust-build fallback. Native artifacts are retained for 90 days and remain reusable if a later APK step fails.
+For application-only work, run **Android application release**. Leave `native_run_id` empty to select an available compatible native artifact from `main`, or provide a native workflow run ID from `main`. Checksums, ancestry and native-input compatibility are checked. A stale, missing or expired artifact requires running the full workflow first. There is no Rust-build fallback. Native artifacts are retained for 90 days and remain reusable if a later APK step fails.
 
-App paths trigger the application workflow; native paths trigger the full workflow. A mixed push leaves APK creation to the full workflow. Documentation-only pushes trigger neither. Workflow definitions and current path filters are authoritative:
+App paths trigger the application workflow; native paths trigger the full workflow. A mixed push leaves APK creation to the full workflow. Documentation-only pushes run CI checks but trigger neither signed distribution workflow. Workflow definitions and current path filters are authoritative:
 
 - [Full native workflow](../.github/workflows/android-native.yml)
 - [Application-only workflow](../.github/workflows/android-app.yml)
 - [Native build script](../scripts/build-android.sh)
 - [APK build script](../scripts/build-apk.sh)
 
-The app toolchain uses JDK 17, Gradle 8.11.1, AGP 8.10.1, Kotlin 2.1.21 and compile/target SDK 36. See [upstream.json](../upstream.json) for pinned native inputs. CI runs relevant tests and Android Lint; device testing remains necessary.
+The app toolchain uses JDK 17, Gradle 8.11.1, AGP 8.10.1, Kotlin 2.1.21 and compile/target SDK 36. See [upstream.json](../upstream.json) for pinned native inputs. CI runs relevant tests and Android Lint; device testing remains necessary. The separate **CI** workflow tests pull requests without signing secrets and does not compile Rust. Distribution workflows do not run on pull requests and accept only `main`.
 
 Both workflows derive version codes from UTC seconds since 2020 rather than separate workflow counters. The version name includes the UTC build date. Signing requires durable Actions secrets `MINA_SIGNING_KEYSTORE_BASE64`, `MINA_SIGNING_STORE_PASSWORD`, `MINA_SIGNING_KEY_PASSWORD` and `MINA_SIGNING_ALIAS`. The certificate must match [android-signing.sha256](../android-signing.sha256). Missing or mismatched signing material fails the build instead of generating an incompatible replacement key. The temporary keystore is removed by the signing script.
 
@@ -164,7 +166,7 @@ On Xiaomi 14T Pro (Android 16, 12 GB RAM), synchronization, persistence restorat
 
 ## Creating a GitHub release
 
-Open **Actions → Android release → Run workflow**, on `main`:
+Open **Actions â†’ Android release â†’ Run workflow**, on `main`:
 
 1. Set a new tag, such as `v0.3.0` or `v0.3.0-rc.1`.
 2. Set `apk_run_id` to a successful full-native or application-only run on `main` containing `mina-android-devnet-apk`. Use the numeric ID from `/actions/runs/<ID>`.
@@ -185,3 +187,11 @@ Release attachments:
 - `LICENSE.txt`: project Apache 2.0 license. Third-party notices remain in the native archive and APK.
 
 The app's installed version still comes from the selected APK build; creating a release tag does not change its version or signature. Normal updates retain the same signing requirements. A published release in a private repository remains subject to that repository's visibility.
+
+## Release APK and dependency notices
+
+**Android application release** is the dedicated APK-only build action. It reuses the compatible native artifact, builds `assembleRelease`, signs with the durable certificate and verifies the packaged manifest is not debuggable. `Android release` publishes verified build outputs; it rejects older debug artifacts and checks the manifest again before creating a release.
+
+Gradle exports the actual `releaseRuntimeClasspath` artifact graph and Maven POMs. The license generator inventories coordinates, versions, artifact hashes and declared license metadata, preserves embedded LICENSE/NOTICE/COPYRIGHT files (including nested AAR `classes.jar` notices), and bundles full license text. Missing metadata or an unreviewed license fails CI. See [the licensing guide](licenses.md).
+
+The generated `ANDROID-DEPENDENCIES.json` and `ANDROID-THIRD-PARTY-NOTICES.txt` are inside `assets/app-licenses/`, attached to the APK artifact and included in new GitHub releases. Rust/circuits/dashboard notices remain separate under `assets/node/` and in the native archive.

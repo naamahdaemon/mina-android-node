@@ -37,12 +37,14 @@ class ReleaseTests(unittest.TestCase):
                 member.size = len(data)
                 archive.addfile(member, io.BytesIO(data))
         (native / 'SHA256SUMS').write_text(f'{release.digest(archive_path.read_bytes())}  {archive_path.name}\n')
-        apk_path = app / 'mina-android-devnet-debug.apk'
+        apk_path = app / 'mina-android-release.apk'
         with zipfile.ZipFile(apk_path, 'w') as apk:
             apk.writestr('lib/arm64-v8a/libmina.so', apk_binary)
             apk.writestr('assets/node/BUILD-INFO.json', files['BUILD-INFO.json'])
+            apk.writestr('assets/app-licenses/ANDROID-DEPENDENCIES.json', '[]')
+            apk.writestr('assets/app-licenses/ANDROID-THIRD-PARTY-NOTICES.txt', 'License notices')
         (app / 'APK-SHA256SUMS').write_text(f'{release.digest(apk_path.read_bytes())}  {apk_path.name}\n')
-        (app / 'APK-BUILD-INFO.txt').write_text('App source: appsha\n')
+        (app / 'APK-BUILD-INFO.txt').write_text('Build type: release\nDebuggable: false\nApp source: appsha\n')
 
     def test_release_has_both_binaries_and_verifiable_checksums(self):
         with tempfile.TemporaryDirectory() as tmp:

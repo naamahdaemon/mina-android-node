@@ -31,13 +31,15 @@ def verify_checksums(text, read, required):
 
 def prepare(root, app_sha, native_sha, tag, apk_run, native_run):
     apk_dir, native_dir = root / 'artifacts/apk', root / 'artifacts/native'
-    apk_name = 'mina-android-devnet-debug.apk'
+    apk_name = 'mina-android-release.apk'
     archive_name = 'mina-android-arm64.tar.gz'
     verify_checksums((apk_dir / 'APK-SHA256SUMS').read_text(),
                      lambda name: (apk_dir / name).read_bytes(), {apk_name})
     verify_checksums((native_dir / 'SHA256SUMS').read_text(),
                      lambda name: (native_dir / name).read_bytes(), {archive_name})
     info = (apk_dir / 'APK-BUILD-INFO.txt').read_text()
+    if not {'Build type: release', 'Debuggable: false'} <= set(info.splitlines()):
+        raise ValueError('A verified non-debuggable release APK is required')
     if f'App source: {app_sha}' not in info.splitlines():
         raise ValueError('APK build metadata does not match selected source')
     with tarfile.open(native_dir / archive_name, 'r:gz') as archive:
@@ -68,6 +70,10 @@ def prepare(root, app_sha, native_sha, tag, apk_run, native_run):
     shutil.copyfile(root / 'LICENSE', output / 'LICENSE.txt')
     (output / 'mina-android-arm64').write_bytes(binary)
     (output / 'mina-android-arm64').chmod(0o755)
+    for name in ('ANDROID-DEPENDENCIES.json', 'ANDROID-THIRD-PARTY-NOTICES.txt'):
+        with zipfile.ZipFile(apk_dir / apk_name) as apk:
+            data = apk.read('assets/app-licenses/' + name)
+        (output / name).write_bytes(data)
     provenance = dict(tag=tag, app_source=app_sha, native_source=native_sha,
                       apk_run_id=apk_run, native_run_id=native_run,
                       native_binary_sha256=digest(binary), upstream=json.loads(native_info))

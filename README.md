@@ -39,7 +39,7 @@ These are device observations, not a compatibility certification. The newest wal
 
 The application supports **both mainnet and devnet**. These are signed experimental APKs, not a Play Store release. Download only from a trusted release/build; a checksum supplied alongside a binary detects corruption but does not independently establish its origin.
 
-For development builds not yet released, open [GitHub Actions](https://github.com/naamahdaemon/mina-android-node/actions), select a successful **Android native prototype** or **Android application only** run and download **`mina-android-devnet-apk`**. Extract its ZIP before installing `mina-android-devnet-debug.apk`; `APK-SHA256SUMS` contains its checksum. These historical artifact names do not restrict the selected network. GitHub may require sign-in to download Actions artifacts.
+For development builds not yet released, open [GitHub Actions](https://github.com/naamahdaemon/mina-android-node/actions), select a successful **Android native prototype** or **Android application release** run and download **`mina-android-devnet-apk`**. Extract its ZIP before installing `mina-android-release.apk`; `APK-SHA256SUMS` contains its checksum. These historical artifact names do not restrict the selected network. GitHub may require sign-in to download Actions artifacts.
 
 Normal updates use the same signing identity and retain application data. Do not uninstall to troubleshoot an update until you have exported your encrypted keys: uninstalling or clearing app data removes private chain data, imported key storage and pending generated keys.
 
@@ -59,14 +59,16 @@ The manually triggered **Android release** workflow assembles existing successfu
 
 ## Builds and updates
 
-All Android compilation is handled by GitHub Actions.
+All Android compilation is handled by GitHub Actions. Distribution APKs use the non-debuggable `release` variant, with the existing durable signing identity. CI verifies the actual packaged manifest and certificate.
+
+Pull requests run the separate **CI** workflow (tests, lint, supervisor checks and license inventory) without signing secrets or a Rust rebuild. Signed builds run only on trusted `main` pushes or manual runs on `main`.
 
 | Workflow | Purpose |
 | --- | --- |
 | [Android native prototype](.github/workflows/android-native.yml) | Validate the app, build the patched Rust node, upload the reusable native package, then build the APK. Use after changing native inputs or when no compatible native artifact remains. |
-| [Android application only](.github/workflows/android-app.yml) | Reuse a compatible native artifact from `main`, verify checksums, and rebuild the app and small C supervisor without recompiling Rust. |
+| [Android application release](.github/workflows/android-app.yml) | Reuse a compatible native artifact from `main`, verify checksums, and rebuild the app and small C supervisor without recompiling Rust. |
 
-App-only changes trigger the application workflow. Native-input changes trigger the full workflow. For a mixed push, the application workflow routes APK creation to the full workflow so Rust finishes first. Both workflows can also be started manually. Documentation-only changes do not trigger either build.
+The **CI** checks run on every pull request and `main` push. App-only changes on `main` trigger the application release workflow. Native-input changes trigger the full workflow. For a mixed push, the application workflow routes APK creation to the full workflow so Rust finishes first. Both workflows can also be started manually. Documentation-only changes run CI checks but do not trigger signed APK or Rust builds.
 
 The app-only workflow deliberately fails if the selected artifact is incompatible, missing or expired; it never silently rebuilds Rust. Native artifacts are retained for 90 days and uploaded before APK compilation. Diagnostics are available as `android-build-diagnostics` or `android-app-diagnostics`.
 
@@ -105,6 +107,6 @@ For bug reports, include the app version, source commit, Android version, device
 
 ## Attribution and licensing
 
-The node engine and protocol implementation come from [Mina Rust](https://github.com/minanode/mina-rust); this repository supplies Android adaptations, application code and build tooling. Native packages and APK assets include the upstream license and third-party notices.
+The node engine and protocol implementation come from [Mina Rust](https://github.com/minanode/mina-rust); this repository supplies Android adaptations, application code and build tooling. Native packages and APK assets include the upstream license and third-party notices. The APK also contains a generated Android runtime dependency inventory, full license text and embedded attribution notices under `assets/app-licenses/`; these files accompany APK artifacts and GitHub releases. See [Android dependency licensing](docs/licenses.md).
 
 This project is licensed under the **Apache License 2.0**, matching Mina Rust. See [LICENSE](LICENSE) for the complete text, copied unchanged from the pinned upstream revision. Upstream copyright notices and third-party license terms remain applicable; the project license does not replace the individual licenses of bundled dependencies.
