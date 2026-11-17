@@ -1,0 +1,139 @@
+name: Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'New release tag (example: v0.3.0)'
+        required: true
+        type: string
+      apk_run_id:
+        description: 'Successful main run containing mina-android-devnet-apk'
+        required: true
+        type: string
+      native_run_id:
+        description: 'Successful main native run matching the APK binary'
+        required: true
+        type: string
+      publish:
+        description: 'Publish immediately instead of creating a draft'
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark as a prerelease'
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: android-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate source runs and new tag
+        id: source
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          APK_RUN_ID: ${{ inputs.apk_run_id }}
+          NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            if (!/^v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$/.test(tag)) {
+              throw new Error('Use a version tag such as v0.3.0 or v0.3.0-rc.1');
+            }
+            const repo = context.repo;
+            for (const [method, args] of [
+              [github.rest.git.getRef, { ...repo, ref: `tags/${tag}` }],
+              [github.rest.repos.getReleaseByTag, { ...repo, tag }],
+            ]) {
+              try { await method(args); }
+              catch (error) { if (error.status === 404) continue; throw error; }
+              throw new Error('Tag/release already exists; choose a new tag. Existing assets are never overwritten.');
+            }
+            const workflows = {};
+            for (const name of ['android-native.yml', 'android-app.yml']) {
+              workflows[name] = (await github.rest.actions.getWorkflow({ ...repo, workflow_id: name })).data.id;
+            }
+            async function validate(value, artifact, allowed) {
+              if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) throw new Error('Run IDs must be positive integers');
+              const run = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: Number(value) })).data;
+              if (!allowed.includes(run.workflow_id) || run.head_branch !== 'main'
+                  || run.head_repository?.full_name !== `${repo.owner}/${repo.repo}`
+                  || !['push', 'workflow_dispatch'].includes(run.event)
+                  || run.status !== 'completed' || run.conclusion !== 'success') {
+                throw new Error('Use successful push/manual builds from this repository on main');
+              }
+              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...repo, run_id: run.id });
+              if (!artifacts.some(a => a.name === artifact && !a.expired)) throw new Error(`Missing or expired artifact: ${artifact}`);
+              return run;
+            }
+            const apk = await validate(process.env.APK_RUN_ID, 'mina-android-devnet-apk', Object.values(workflows));
+            const native = await validate(process.env.NATIVE_RUN_ID, 'mina-android-arm64', [workflows['android-native.yml']]);
+            const current = (await github.rest.repos.compareCommits({ ...repo, base: apk.head_sha, head: context.sha })).data;
+            if (!['ahead', 'identical'].includes(current.status)) throw new Error('APK source must be an ancestor of this main checkout');
+            const diff = (await github.rest.repos.compareCommits({ ...repo, base: native.head_sha, head: apk.head_sha })).data;
+            const { isNativeInput } = require('./scripts/native-inputs.cjs');
+            if (!['ahead', 'identical'].includes(diff.status) || (diff.files || []).length >= 300
+                || (diff.files || []).some(f => isNativeInput(f.filename) || (f.previous_filename && isNativeInput(f.previous_filename)))) {
+              throw new Error('Native build inputs do not match the APK source');
+            }
+            core.setOutput('sha', apk.head_sha);
+            core.setOutput('native_sha', native.head_sha);
+      - uses: actions/download-artifact@v4
+        with:
+          name: mina-android-devnet-apk
+          run-id: ${{ inputs.apk_run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: mina-android-arm64
+          run-id: ${{ inputs.native_run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/native
+      - name: Test release package verification
+        run: python3 -m unittest discover -s tests -p test_release_package.py
+      - name: Verify checksums, provenance and identical native binaries
+        env:
+          APK_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          NATIVE_SOURCE_SHA: ${{ steps.source.outputs.native_sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          APK_RUN_ID: ${{ inputs.apk_run_id }}
+          NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        run: python3 scripts/prepare-release.py
+      - name: Verify APK signing identity
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs release/mina-android.apk > signing.txt
+          expected=$(tr -d '[:space:]' < android-signing.sha256)
+          actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' signing.txt | tr -d '[:space:]')
+          test -n "$actual"
+          test "$actual" = "$expected"
+      - name: Create release with all verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+          PUBLISH: ${{ inputs.publish }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          args=(--target "$RELEASE_SHA" --title "Mina Android Node $RELEASE_TAG" --notes-file release/RELEASE-NOTES.md)
+          if [ "$PUBLISH" != true ]; then args+=(--draft); fi
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" "${args[@]}" release/mina-android.apk release/mina-android-arm64 release/mina-android-arm64.tar.gz release/SHA256SUMS release/APK-BUILD-INFO.txt release/RELEASE-INFO.json release/LICENSE.txt
+          echo "Release $RELEASE_TAG created from $RELEASE_SHA (publish=$PUBLISH, prerelease=$PRERELEASE)." >> "$GITHUB_STEP_SUMMARY"

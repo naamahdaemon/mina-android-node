@@ -161,3 +161,27 @@ On Xiaomi 14T Pro (Android 16, 12 GB RAM), synchronization, persistence restorat
 - [Android foreground service types](https://developer.android.com/develop/background-work/services/fgs/service-types)
 - [Android executable restrictions](https://developer.android.com/about/versions/10/behavior-changes-10#execute-permission)
 - [Android Gradle Plugin 8.10](https://developer.android.com/build/releases/agp-8-10-0-release-notes)
+
+## Creating a GitHub release
+
+Open **Actions → Android release → Run workflow**, on `main`:
+
+1. Set a new tag, such as `v0.3.0` or `v0.3.0-rc.1`.
+2. Set `apk_run_id` to a successful full-native or application-only run on `main` containing `mina-android-devnet-apk`. Use the numeric ID from `/actions/runs/<ID>`.
+3. Set `native_run_id` to the successful full-native run that produced the Rust binary embedded in that APK. For a full build, both IDs are the same. For an app-only build, use its reused native run, shown in the build summary.
+4. Keep **Publish immediately** disabled to create a draft for review. **Prerelease** defaults to enabled. Enable publication only when ready to publish the verified assets.
+
+The workflow does not rebuild either binary or require private signing secrets. It checks run origin and success, source ancestry/native-input compatibility, artifact availability, checksums and the pinned APK signing certificate. It also compares the actual Rust executable and embedded native build information between the APK and Termux archive. A mismatch fails before release creation. Expired artifacts require new build runs.
+
+The release targets the **APK source commit**, which can be older than the workflow checkout. Existing tags/releases are refused rather than overwritten; choose a fresh version for another attempt. If a network failure leaves a partial draft, inspect it in Releases before retrying. The release operation is not an atomic transaction across asset uploads.
+
+Release attachments:
+
+- `mina-android.apk`: same signed APK as the selected build, renamed for distribution.
+- `mina-android-arm64`: standalone native executable; after downloading in Termux, use `chmod +x mina-android-arm64` before executing it.
+- `mina-android-arm64.tar.gz`: complete Termux package, including launcher and upstream notices; recommended for standalone-node installation.
+- `SHA256SUMS`: checksums for all attached files except the checksum file itself.
+- `APK-BUILD-INFO.txt` and `RELEASE-INFO.json`: version, source/run provenance and native build information.
+- `LICENSE.txt`: project Apache 2.0 license. Third-party notices remain in the native archive and APK.
+
+The app's installed version still comes from the selected APK build; creating a release tag does not change its version or signature. Normal updates retain the same signing requirements. A published release in a private repository remains subject to that repository's visibility.

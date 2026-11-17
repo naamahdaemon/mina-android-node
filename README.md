@@ -51,6 +51,10 @@ The supplied launcher starts **devnet**, stores data under `$HOME/.mina-android/
 
 Application and Termux storage are separate. Installing the APK does not import an existing Termux chain or key.
 
+## GitHub releases
+
+The manually triggered **Android release** workflow assembles existing successful builds without compiling Rust or the app. Supply a new version tag and the APK/native workflow run IDs. It verifies source compatibility, checksums, the APK signing certificate and byte-identical Rust executables before creating a draft by default. Assets include the signed APK, standalone Mina ARM64 executable, full Termux archive, checksums, license and build provenance. See the [release guide](docs/android-app.md#creating-a-github-release).
+
 ## Builds and updates
 
 All Android compilation is handled by GitHub Actions.
