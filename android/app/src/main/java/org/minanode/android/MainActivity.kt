@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.doOnAttach
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
@@ -61,6 +62,8 @@ class MainActivity : ComponentActivity() {
         val appearance = AppearancePreferences(this)
         setTheme(appearance.activityTheme())
         super.onCreate(savedInstanceState)
+        // Compose owns the visible-system-bar padding on every supported Android version.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             var dark by remember { mutableStateOf(appearance.dark()) }
             var fullscreen by remember { mutableStateOf(appearance.fullscreen()) }
@@ -140,7 +143,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                    Column(Modifier.fillMaxSize().windowInsetsPadding(appContentInsets())) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                             Row(Modifier.fillMaxWidth().then(titleSwipe), verticalAlignment = Alignment.CenterVertically) {
                                 if (hamburger) Box {

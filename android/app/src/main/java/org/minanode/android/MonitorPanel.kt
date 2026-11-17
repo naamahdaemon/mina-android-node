@@ -322,9 +322,9 @@ private fun BlockDetail(block: ProducedBlock, state: MonitorState, network: Stri
         bounds?.let { detailWindow = detailWindow.transform(it.first, it.last, zoom, pan, anchor) }
     }
     val markers = listOfNotNull(block.proofStartMs, block.proofEndMs, block.committedMs, block.discardedMs)
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         FullscreenDialogWindow()
-        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Surface(Modifier.fillMaxSize().windowInsetsPadding(appContentInsets())) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("MINA / ANDROID", Modifier.weight(1f), maxLines = 1, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

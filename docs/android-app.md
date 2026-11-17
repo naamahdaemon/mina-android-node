@@ -263,7 +263,10 @@ memory. Older productions without captured measurements cannot be reconstructed.
 
 Settings includes a persistent full-screen switch. It hides status/navigation
 bars using the attached native WindowInsetsController, with transient reveal
-from an edge swipe; cutout and keyboard safe insets remain respected. The block
+from an edge swipe. Keyboard clearance and landscape side cutouts remain respected.
+In immersive mode the top cutout no longer reserves the former status-bar strip;
+transient system bars overlay the full-height content. Normal mode keeps safe drawing
+insets, and Compose owns system-bar padding on all supported Android versions. The block
 detail dialog follows the same choice. The activity reapplies it after focus
 returns from Android dialogs or another app.
 

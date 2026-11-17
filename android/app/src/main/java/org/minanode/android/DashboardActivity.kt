@@ -30,8 +30,12 @@ class DashboardActivity : Activity() {
         root.doOnAttach { applyFullscreen(it, AppearancePreferences(this).fullscreen()) }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
-            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            val fullscreen = AppearancePreferences(this).fullscreen()
+            val safe = insets.getInsets(if (fullscreen) WindowInsetsCompat.Type.ime()
+                else WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(if (fullscreen) maxOf(safe.left, cutout.left) else safe.left, safe.top,
+                if (fullscreen) maxOf(safe.right, cutout.right) else safe.right, safe.bottom)
             WindowInsetsCompat.CONSUMED
         }
         dashboard = DashboardView(this) { finish() }.also { root.addView(it) }
