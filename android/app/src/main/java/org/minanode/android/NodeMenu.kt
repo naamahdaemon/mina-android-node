@@ -35,7 +35,7 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                 .clickable(enabled = scroll.canScrollBackward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value - maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtLeast(0))
                 } }), contentAlignment = Alignment.CenterStart) {
-                Text("â€¹", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollBackward) 1f else 0.38f))
+                Text("\u2039", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollBackward) 1f else 0.38f))
             }
             Row(Modifier.weight(1f).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NodePage.entries.forEach { page ->
@@ -48,7 +48,7 @@ fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {
                 .clickable(enabled = scroll.canScrollForward, role = Role.Button, onClick = { scope.launch {
                     scroll.animateScrollTo((scroll.value + maxOf(1, scroll.viewportSize * 3 / 4)).coerceAtMost(scroll.maxValue))
                 } }), contentAlignment = Alignment.CenterEnd) {
-                Text("â€º", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollForward) 1f else 0.38f))
+                Text("\u203a", fontSize = 32.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (scroll.canScrollForward) 1f else 0.38f))
             }
         }
         if (scroll.maxValue > 0) {
