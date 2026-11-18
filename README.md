@@ -72,7 +72,7 @@ The **CI** checks run on every pull request and `main` push. App-only changes on
 
 The app-only workflow deliberately fails if the selected artifact is incompatible, missing or expired; it never silently rebuilds Rust. Native artifacts are retained for 90 days and uploaded before APK compilation. Diagnostics are available as `android-build-diagnostics` or `android-app-diagnostics`.
 
-[upstream.json](upstream.json) pins Mina Rust revision `5ee3c569bc00a2ea8631f6373bd151322a4566d1`, Rust `1.92.0`, Android NDK `27.3.13750724` and target `aarch64-linux-android` (API 28). [Source preparation](scripts/prepare-source.py) applies the ordered [Android patches](patches). The legacy frontend is excluded from the source checkout for Windows filesystem compatibility. Windows-specific patches are not applied.
+[upstream.json](upstream.json) pins Mina Rust [v0.22.2](https://github.com/minanode/mina-rust/releases/tag/v0.22.2), revision `317f6ec5a1ad977dc91ba24994cb45c534c18f1d`, Rust `1.92.0`, Android NDK `27.3.13750724` and target `aarch64-linux-android` (API 28). [Source preparation](scripts/prepare-source.py) applies the ordered [Android patches](patches). The legacy frontend is excluded from the source checkout for Windows filesystem compatibility. Windows-specific patches are not applied.
 
 The binary uses libp2p, embedded circuits and the embedded dashboard, without WebRTC. Android uses its system allocator; native ELF segments are configured for 16 KiB alignment. Actual device compatibility still requires testing.
 
