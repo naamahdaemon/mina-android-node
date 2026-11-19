@@ -45,8 +45,7 @@ import kotlinx.coroutines.withContext
 private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let { String.format(locale, "%.${digits}f", it) } ?: "—"
 
 @Composable
-fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean, titleSwipe: Modifier = Modifier, suspended: Boolean = false) {
-    SuspendedMonitorSampling(suspended)
+fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean, titleSwipe: Modifier = Modifier) {
     var window by rememberSaveable(stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
     var autoscale by rememberSaveable { mutableStateOf(true) }
     var page by rememberSaveable { mutableIntStateOf(0) }
