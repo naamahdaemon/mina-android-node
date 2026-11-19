@@ -37,3 +37,6 @@ When updating dependencies:
 Gradle plugins, the JDK, SDK/NDK, test-only libraries and other build tools are not application runtime components and are not represented as packaged dependencies in this inventory. Their own distribution/toolchain licenses still apply. The native Rust binary, embedded circuits and dashboard keep their separately generated upstream `LICENSE`, `THIRD_PARTY_NOTICES` and `THIRD_PARTY_LICENSES` under APK `assets/node/` and in the Termux archive.
 
 This is an automated inventory with fail-closed checks, not a legal opinion or a guarantee that a third party's Maven metadata is complete.
+
+
+Parent POM metadata is reused from Gradle's content-addressed cache when available, with the cache hash checked before parsing. A small set of upstream POMs that have returned intermittent 404 responses from CI is pinned byte-for-byte under `docs/licenses/parent-poms/`; its manifest records the exact coordinate, official source URL and SHA-256. The generator verifies that digest before use. These are original upstream metadata, not replacement license declarations or new runtime dependencies. Other missing parent POMs still use bounded downloads from the existing official repositories, and missing or invalid metadata remains a build failure.

@@ -121,7 +121,8 @@ class ProducerPowerController(
                 check(confirmed)
                 files.append("[app] Node suspended (${if (manual) "manual" else "automatic"}); wake scheduled at ${java.time.Instant.ofEpochMilli(wakeAt)}")
                 NodeState.flow.update { if (it.run == RunPhase.RUNNING) it.copy(run = RunPhase.SUSPENDED, wakeLock = false,
-                    message = uiText(R.string.power_waiting), powerWakeAtMs = wakeAt, powerCanSuspend = false) else it }
+                    message = uiText(R.string.power_waiting), powerWakeAtMs = wakeAt, powerCanSuspend = false,
+                    status = it.status.copy(peers = 0)) else it }
                 runCatching { changed() }
                 if (NodeState.flow.value.run == RunPhase.SUSPENDED) releaseCpu() else waiting.complete(Unit)
                 waiting

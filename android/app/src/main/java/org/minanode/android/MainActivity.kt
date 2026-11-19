@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                             Metric(stringResource(R.string.height), state.status.height?.toString() ?: "\u2014", Modifier.weight(1f))
                             Metric(stringResource(R.string.peers), state.status.peers.toString(), Modifier.weight(1f))
                         }
-                        Text(stringResource(R.string.block_age_uptime, state.status.ageSeconds?.toString() ?: "\u2014", state.status.uptimeSeconds))
+                        BlockAgeUptimeText(state.status, state.run == RunPhase.SUSPENDED)
                         Text(stringResource(R.string.saved_state_api, state.status.persistence.resolve(context), NodeApi.PORT), style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.selected_mode, stringResource(if (profile.producer) R.string.producer_mode else R.string.observer_mode)), style = MaterialTheme.typography.bodySmall)
                         if (state.vpn) Card {

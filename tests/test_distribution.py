@@ -106,6 +106,34 @@ class DistributionTests(unittest.TestCase):
                     licenses.parent_pom('example:parent:1')
                 self.assertFalse(list(Path(temp).rglob('*.pom')))
 
+    def test_pinned_guava_parent_is_verified_and_works_without_network(self):
+        with patch.object(licenses.urllib.request, 'urlopen', side_effect=AssertionError('Network should not be used')):
+            path = licenses.parent_pom('com.google.guava:guava-parent:26.0-android')
+            metadata = licenses.pom_licenses(licenses.ET.parse(path).getroot())
+            self.assertIn('Apache', metadata[0]['name'])
+
+    def test_pinned_parent_tampering_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)):
+            directory = Path(temp) / 'docs/licenses/parent-poms'
+            directory.mkdir(parents=True)
+            (directory / 'parent.pom').write_bytes(b'<project/>')
+            (directory / 'manifest.json').write_text(json.dumps({'example:parent:1': {
+                'file': 'parent.pom', 'sha256': '0' * 64}}))
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                licenses.parent_pom('example:parent:1')
+
+    def test_verified_gradle_parent_cache_avoids_network(self):
+        data = b'<project/>'
+        with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)), \
+                patch.dict(licenses.os.environ, {'GRADLE_USER_HOME': temp}), \
+                patch.object(licenses.urllib.request, 'urlopen', side_effect=AssertionError('Network should not be used')):
+            path = Path(temp) / 'caches/modules-2/files-2.1/example/parent/1' / licenses.hashlib.sha1(data).hexdigest() / 'parent-1.pom'
+            path.parent.mkdir(parents=True); path.write_bytes(data)
+            self.assertEqual(licenses.parent_pom('example:parent:1'), path)
+            path.write_bytes(b'<changed/>')
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                licenses.parent_pom('example:parent:1')
+
     def test_unknown_license_requires_review(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
