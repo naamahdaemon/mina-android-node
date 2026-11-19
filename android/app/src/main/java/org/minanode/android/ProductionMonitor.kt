@@ -84,6 +84,8 @@ object ProductionParser {
 
 /** Measurements are missing, rather than zero, when /proc access is denied. */
 class ProductionMonitor(private val context: Context, private val files: NodeFiles) {
+    private val suspendedResources = SuspendedResourceSampler()
+    private var lastSuspendedSampleNs = 0L
     private var lastTicks: Long? = null
     private var lastNs = 0L
     private var identity: Long? = null
@@ -102,7 +104,8 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
         }
     }
 
-    fun sample(pid: Int?, producer: Boolean): MonitorState {
+    // Serialize only state access; the existing active sampling body stays unchanged.
+    @Synchronized fun sample(pid: Int?, producer: Boolean): MonitorState {
         val now = SystemClock.elapsedRealtimeNanos()
         var cpu: Double? = null; var ram: Double? = null
         if (pid != null) runCatching {
@@ -163,4 +166,19 @@ class ProductionMonitor(private val context: Context, private val files: NodeFil
             resourceArchiveFailed = resources.writeFailed, upcomingSlots = upcoming)
         return state
     }
+
+    /** No node API, battery receiver, disk scan, archive writes, signals or wake lock. */
+    @Synchronized fun sampleSuspendedResources(pid: Int, allowed: () -> Boolean): MonitorState? {
+        if (!allowed()) return null
+        val nowNs = SystemClock.elapsedRealtimeNanos()
+        val clock = System.currentTimeMillis()
+        // A long interval/page revisit starts a fresh suspended CPU baseline.
+        if (lastSuspendedSampleNs == 0L || nowNs - lastSuspendedSampleNs > 5_000_000_000L || nowNs <= lastSuspendedSampleNs) suspendedResources.reset()
+        lastSuspendedSampleNs = nowNs
+        val sample = suspendedResources.sample(pid, nowNs, clock, Os.sysconf(OsConstants._SC_CLK_TCK)) { File(it).readText() }
+        if (!allowed()) return null
+        state = state.copy(samples = SuspendedResourceSampler.append(state.samples, sample))
+        return state
+    }
+
 }

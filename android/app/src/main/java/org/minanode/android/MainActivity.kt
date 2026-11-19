@@ -215,7 +215,7 @@ class MainActivity : ComponentActivity() {
                             onSave = { runCatching { profile.validate(hasKey); store.save(profile); profileDirty = false }
                                 .onSuccess { NodeState.message(uiText(R.string.profile_saved)) }.onFailure { NodeState.message(it.userText()) } })
                         if (current == NodePage.SETTINGS) Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
-                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer(), active, titleSwipe)
+                        if (current == NodePage.MONITOR) MonitorPanel(state.monitor, store.load().producer, if (active) state.network else profile.network.cli, appearance.explorer(), active, titleSwipe, suspended = state.run == RunPhase.SUSPENDED)
                         if (current == NodePage.NODE) {
                         Column(Modifier.fillMaxWidth().then(titleSwipe), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                             Text(stringResource(R.string.headline), style = MaterialTheme.typography.headlineLarge)
