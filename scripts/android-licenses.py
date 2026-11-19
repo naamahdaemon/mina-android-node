@@ -10,6 +10,7 @@ import zipfile
 import urllib.request
 import urllib.error
 import urllib.parse
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,21 +24,32 @@ def parent_pom(coordinate):
     cache = ROOT / 'android/app/build/reports/licenses/parent-poms' / relative
     if cache.is_file():
         return cache
-    for repository in ('https://repo.maven.apache.org/maven2/', 'https://dl.google.com/dl/android/maven2/'):
-        try:
-            with urllib.request.urlopen(repository + relative, timeout=30) as response:
-                if urllib.parse.urlparse(response.url).hostname not in ('repo.maven.apache.org', 'dl.google.com'):
-                    raise ValueError('Unexpected parent POM redirect')
-                data = response.read(1024 * 1024 + 1)
-                if len(data) > 1024 * 1024:
-                    raise ValueError('Parent POM too large')
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_bytes(data)
-            return cache
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                raise
-    raise ValueError(f'Parent POM not found: {coordinate}')
+    failures = []
+    # A repository/CDN can briefly return 404 for an existing parent. Retry a
+    # bounded number of times; never substitute or omit required license data.
+    for attempt in range(3):
+        for repository in ('https://repo.maven.apache.org/maven2/', 'https://dl.google.com/dl/android/maven2/'):
+            url = repository + relative
+            try:
+                with urllib.request.urlopen(url, timeout=30) as response:
+                    if urllib.parse.urlparse(response.url).hostname not in ('repo.maven.apache.org', 'dl.google.com'):
+                        raise ValueError('Unexpected parent POM redirect')
+                    data = response.read(1024 * 1024 + 1)
+                    if len(data) > 1024 * 1024:
+                        raise ValueError('Parent POM too large')
+                ET.fromstring(data)  # Do not cache an invalid/partial XML response.
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                cache.write_bytes(data)
+                return cache
+            except urllib.error.HTTPError as error:
+                if error.code not in (404, 408, 429) and not 500 <= error.code <= 599:
+                    raise
+                failures.append(f'{url}: HTTP {error.code}')
+            except (urllib.error.URLError, TimeoutError) as error:
+                failures.append(f'{url}: {type(error).__name__}')
+        if attempt < 2:
+            time.sleep(2 ** attempt)
+    raise ValueError(f'Parent POM unavailable after 3 attempts: {coordinate}; ' + '; '.join(failures))
 
 
 def pom_licenses(pom, resolver=parent_pom, depth=0):
