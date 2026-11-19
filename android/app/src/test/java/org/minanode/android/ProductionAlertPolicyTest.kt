@@ -34,6 +34,48 @@ class ProductionAlertPolicyTest {
             assertTrue(runCatching { ProductionAlertPolicy.due(emptyList(), "mainnet", 0, emptySet(), seconds) }.isFailure)
         }
     }
+    @Test fun remindersStartAfterInitialAndRespectIntervalAndSlotBoundary() {
+        val start = 1790000000000L
+        val slot = ProductionSlot(7, start + 60000)
+        val key = slot.key("mainnet")
+        val sent = setOf(key)
+        val last = mapOf(key to start)
+        assertEquals(listOf(slot), ProductionAlertPolicy.due(listOf(slot), "mainnet", start, emptySet(), 60, 20))
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", start + 19999, sent, 60, 20, last).isEmpty())
+        assertEquals(listOf(slot), ProductionAlertPolicy.due(listOf(slot), "mainnet", start + 20000, sent, 60, 20, last))
+        val restoredLast = mapOf(key to start + 20000)
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", start + 20001, sent, 60, 20, restoredLast).isEmpty())
+        assertEquals(listOf(slot), ProductionAlertPolicy.due(listOf(slot), "mainnet", start + 40000, sent, 60, 20, restoredLast))
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", start + 60000, sent, 60, 20, restoredLast).isEmpty())
+    }
+    @Test fun remindersAreOptionalAndRequireAnInitialEmission() {
+        val now = 1790000000000L
+        val slot = ProductionSlot(7, now + 30000)
+        val key = slot.key("mainnet")
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", now, setOf(key), 60, null, mapOf(key to now - 20000)).isEmpty())
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", now, setOf(key), 60, 10).isEmpty())
+        assertTrue(ProductionAlertPolicy.due(emptyList(), "mainnet", now, setOf(key), 60, 10, mapOf(key to now - 20000)).isEmpty())
+    }
+    @Test fun latePollingEmitsOneReminderNotABurstAndUsesActualInitialTime() {
+        val now = 1790000000000L
+        val slot = ProductionSlot(7, now + 10000)
+        val key = slot.key("mainnet")
+        val last = mapOf(key to now - 45000)
+        assertEquals(listOf(slot), ProductionAlertPolicy.due(listOf(slot, slot), "mainnet", now, setOf(key), 60, 10, last))
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", now + 1, setOf(key), 60, 10, mapOf(key to now)).isEmpty())
+    }
+    @Test fun rejectsInvalidReminderIntervals() {
+        for (seconds in listOf(-1, 0, 60, 61, Int.MAX_VALUE)) {
+            assertTrue(runCatching { ProductionAlertPolicy.due(emptyList(), "mainnet", 0, emptySet(), 60, seconds) }.isFailure)
+        }
+        assertTrue(runCatching { ProductionAlertPolicy.due(emptyList(), "mainnet", 0, emptySet(), 1, 1) }.isFailure)
+    }
+    @Test fun clockMovingBackDoesNotSendEarlyReminder() {
+        val now = 1790000000000L
+        val slot = ProductionSlot(7, now + 60000)
+        assertTrue(ProductionAlertPolicy.due(listOf(slot), "mainnet", now, setOf(slot.key("mainnet")), 60, 10,
+            mapOf(slot.key("mainnet") to now + 10000)).isEmpty())
+    }
     @Test fun parsesEveryAnnouncedSlotAndIgnoresOldOrUnscheduledAttempts() {
         val text = """{"attempts":[
           {"status":"Scheduled","won_slot":{"global_slot":1,"slot_time":130000000000}},

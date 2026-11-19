@@ -31,9 +31,13 @@ class AppearancePreferences(private val context: Context) {
     fun dark() = prefs.getBoolean("dark", true)
     fun setDark(value: Boolean) { prefs.edit().putBoolean("dark", value).apply() }
     fun productionAlertLeadSeconds() = prefs.getInt("production-alert-lead-seconds", 60).coerceIn(1, 3600)
-    fun setProductionAlertLeadSeconds(value: Int) {
-        require(value in 1..3600)
-        prefs.edit().putInt("production-alert-lead-seconds", value).apply()
+    fun productionAlertReminderSeconds(): Int? = prefs.getInt("production-alert-reminder-seconds", 0)
+        .takeIf { it in 1 until productionAlertLeadSeconds() }
+    fun setProductionAlertTiming(lead: Int, reminder: Int?) {
+        require(lead in 1..3600)
+        require(reminder == null || reminder in 1 until lead)
+        prefs.edit().putInt("production-alert-lead-seconds", lead)
+            .putInt("production-alert-reminder-seconds", reminder ?: 0).apply()
     }
     fun fullscreen() = prefs.getBoolean("fullscreen", false)
     fun setFullscreen(value: Boolean) { prefs.edit().putBoolean("fullscreen", value).apply() }
@@ -65,10 +69,14 @@ fun MinaTheme(dark: Boolean, fullscreen: Boolean = false, content: @Composable (
 }
 
 @Composable
-fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullscreen: Boolean, alertLeadSeconds: Int,
-    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit, onAlertLead: (Int) -> Unit) {
+fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullscreen: Boolean, alertLeadSeconds: Int, alertReminderSeconds: Int?,
+    onLanguage: (String) -> Unit, onDark: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit, onAlertTiming: (Int, Int?) -> Unit) {
     var leadInput by rememberSaveable(alertLeadSeconds) { mutableStateOf(alertLeadSeconds.toString()) }
+    var reminderInput by rememberSaveable(alertReminderSeconds) { mutableStateOf(alertReminderSeconds?.toString().orEmpty()) }
     val parsedLead = leadInput.toIntOrNull()?.takeIf { it in 1..3600 }
+    val reminderBlank = reminderInput.isBlank()
+    val parsedReminder = reminderInput.toIntOrNull()
+    val reminderValid = reminderBlank || (parsedReminder != null && parsedLead != null && parsedReminder in 1 until parsedLead)
     val darkLabel = stringResource(R.string.dark_theme)
     val fullscreenLabel = stringResource(R.string.fullscreen)
     Card(Modifier.fillMaxWidth()) {
@@ -103,8 +111,16 @@ fun AppearanceSettings(language: String, dark: Boolean, enabled: Boolean, fullsc
                 isError = parsedLead == null,
                 supportingText = { Text(stringResource(R.string.production_alert_lead_range)) })
             Text(stringResource(R.string.production_alert_lead_current, alertLeadSeconds), style = MaterialTheme.typography.bodySmall)
-            Button(enabled = enabled && parsedLead != null && parsedLead != alertLeadSeconds,
-                onClick = { parsedLead?.let(onAlertLead) }) { Text(stringResource(R.string.save)) }
+            OutlinedTextField(reminderInput, { reminderInput = it }, Modifier.fillMaxWidth(), enabled = enabled, singleLine = true,
+                label = { Text(stringResource(R.string.production_alert_reminder)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = !reminderValid,
+                supportingText = { Text(stringResource(R.string.production_alert_reminder_help)) })
+            Text(if (alertReminderSeconds == null) stringResource(R.string.production_alert_reminder_off)
+                else stringResource(R.string.production_alert_reminder_current, alertReminderSeconds), style = MaterialTheme.typography.bodySmall)
+            Button(enabled = enabled && parsedLead != null && reminderValid &&
+                (parsedLead != alertLeadSeconds || (if (reminderBlank) null else parsedReminder) != alertReminderSeconds),
+                onClick = { parsedLead?.let { onAlertTiming(it, if (reminderBlank) null else parsedReminder) } }) { Text(stringResource(R.string.save)) }
             Text(stringResource(R.string.production_alert_help), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.appearance_help), style = MaterialTheme.typography.bodySmall)
         }
