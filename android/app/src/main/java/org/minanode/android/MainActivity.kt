@@ -231,8 +231,8 @@ class MainActivity : ComponentActivity() {
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Button(enabled = !active && !preparingStart, onClick = {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp), enabled = !active && !preparingStart, onClick = {
                                         runCatching { profile.validate(vault.exists(profile.network)); store.save(profile); profileDirty = false }.onSuccess {
                                             preparingStart = true
                                             pendingStart = profile
@@ -243,16 +243,16 @@ class MainActivity : ComponentActivity() {
                                             } else continueStart()
                                         }.onFailure { NodeState.message(it.userText()) }
                                     }) { Text(stringResource(R.string.start)) }
-                                    OutlinedButton(enabled = active && state.run != RunPhase.STOPPING, onClick = {
+                                    OutlinedButton(modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp), enabled = active && state.run != RunPhase.STOPPING, onClick = {
                                         startService(Intent(this@MainActivity, NodeService::class.java).setAction(NodeService.STOP))
                                     }) { Text(stringResource(R.string.stop)) }
+                                    OutlinedButton(modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+                                        enabled = state.run == RunPhase.SUSPENDED || (state.run == RunPhase.RUNNING && state.powerCanSuspend), onClick = {
+                                            val action = if (NodeState.flow.value.run == RunPhase.SUSPENDED) NodeService.POWER_RESUME else NodeService.POWER_SUSPEND
+                                            startService(Intent(this@MainActivity, NodeService::class.java).setAction(action))
+                                        }) { Text(stringResource(if (state.run == RunPhase.SUSPENDED) R.string.power_resume else R.string.power_suspend)) }
                                 }
-                                if (state.run == RunPhase.SUSPENDED) {
-                                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                                        startService(Intent(this@MainActivity, NodeService::class.java).setAction(NodeService.POWER_RESUME))
-                                    }) { Text(stringResource(R.string.power_resume_continuous)) }
-                                    Text(stringResource(R.string.power_resume_help), style = MaterialTheme.typography.bodySmall)
-                                }
+                                if (state.run == RunPhase.SUSPENDED) Text(stringResource(R.string.power_resume_help), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

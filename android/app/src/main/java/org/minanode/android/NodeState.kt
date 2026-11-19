@@ -64,6 +64,7 @@ data class NodeUiState(
     val wakeLock: Boolean = false,
     val monitor: MonitorState = MonitorState(),
     val powerWakeAtMs: Long? = null,
+    val powerCanSuspend: Boolean = false,
 )
 
 object NodeState {

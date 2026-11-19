@@ -49,9 +49,12 @@ class NodeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == POWER_RESUME) {
-            val settings = ProducerPowerPreferences(this)
-            settings.save(false, settings.wakeSeconds())
+            // A manual resume changes only the current process state, never preferences.
             powerController?.wake()
+            if (child == null) stopSelf()
+        } else if (intent?.action == POWER_SUSPEND) {
+            // The next normal poll rechecks the current chain/schedule before any SIGSTOP.
+            powerController?.requestSuspend()
             if (child == null) stopSelf()
         } else if (intent?.action == POWER_WAKE || intent?.action == RECONFIGURE) {
             val controller = powerController
@@ -210,7 +213,7 @@ class NodeService : Service() {
                         NodeState.flow.update { it.copy(
                             run = if (stopped || code == 0) RunPhase.STOPPED else RunPhase.ERROR,
                             message = if (stopped) uiText(R.string.node_stopped) else uiText(R.string.process_ended, code),
-                            log = files.tail(), wakeLock = false, powerWakeAtMs = null) }
+                            log = files.tail(), wakeLock = false, powerWakeAtMs = null, powerCanSuspend = false) }
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                     }
@@ -230,7 +233,7 @@ class NodeService : Service() {
     }
 
     private fun requestStop() {
-        NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = uiText(R.string.clean_stop)) }
+        NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = uiText(R.string.clean_stop), powerCanSuspend = false) }
         powerController?.close()
         productionAlerts.cancel()
         LaunchGate.clear()
@@ -299,7 +302,8 @@ class NodeService : Service() {
     companion object {
         const val START = "org.minanode.android.START"
         const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
-        const val POWER_RESUME = "org.minanode.android.POWER_RESUME_CONTINUOUS"
+        const val POWER_RESUME = "org.minanode.android.POWER_RESUME"
+        const val POWER_SUSPEND = "org.minanode.android.POWER_SUSPEND"
         const val POWER_WAKE = "org.minanode.android.POWER_WAKE"
         const val RECONFIGURE = "org.minanode.android.POWER_RECONFIGURE"
         const val STOP = "org.minanode.android.STOP"

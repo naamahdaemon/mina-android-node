@@ -8,10 +8,13 @@ object ProducerPowerPolicy {
     const val AFTER_SLOT_MS = 300_000L
     const val MIN_SLEEP_MS = 15 * 60_000L
 
+    fun canSuspendManually(enabled: Boolean, running: Boolean, alarmsAllowed: Boolean, safeWakeAt: Long?): Boolean =
+        enabled && running && alarmsAllowed && safeWakeAt != null
+
     fun wakeAt(now: Long, slots: List<ProductionSlot>, leadSeconds: Int,
-        awakeSince: Long, syncedSince: Long?, freshSchedule: Boolean): Long? {
+        awakeSince: Long, syncedSince: Long?, freshSchedule: Boolean, manual: Boolean = false): Long? {
         require(leadSeconds in 60..7200)
-        if (!freshSchedule || syncedSince == null || now < awakeSince + MIN_AWAKE_MS ||
+        if (!freshSchedule || syncedSince == null || (!manual && now < awakeSince + MIN_AWAKE_MS) ||
             now < syncedSince + STABLE_MS) return null
         if (slots.any { now >= it.timeMs - leadSeconds * 1000L && now <= it.timeMs + AFTER_SLOT_MS }) return null
         val next = slots.filter { it.timeMs > now }.minOfOrNull { it.timeMs } ?: return null
