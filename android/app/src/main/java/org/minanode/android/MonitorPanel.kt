@@ -83,10 +83,7 @@ fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explor
     if (state.thermal >= 3) Text(stringResource(R.string.thermal_warning), color = MaterialTheme.colorScheme.error)
     if (producer) {
         Text(stringResource(R.string.production), style = MaterialTheme.typography.titleLarge)
-        val now = rememberDisplayTime(running)
-        val next = DisplayTime.nextSlot(state, now)
-        Text(if (next == null) stringResource(R.string.no_next_slot)
-            else stringResource(R.string.next_slot, next.slot, DisplayTime.remainingSeconds(next, now)))
+        NextProductionSlotText(state, running)
         Text(stringResource(R.string.production_totals, state.blocks.count { it.status == "Canonical" }, state.blocks.count { it.status == "Orphaned" }, state.blocks.size))
         state.producerError?.let { Text(it.resolve(context), color = MaterialTheme.colorScheme.error) }
         Text(stringResource(R.string.production_history_help), style = MaterialTheme.typography.bodySmall)

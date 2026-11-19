@@ -1,6 +1,8 @@
 package org.minanode.android
 
 import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -17,6 +19,21 @@ fun rememberDisplayTime(enabled: Boolean): Long {
         }
     }
     return clock.longValue
+}
+
+@Composable
+fun BlockAgeUptimeText(status: ChainStatus, suspended: Boolean) {
+    val now = rememberDisplayTime(suspended)
+    val age = if (suspended) status.ageAt(now) else status.ageSeconds
+    Text(stringResource(R.string.block_age_uptime, age?.toString() ?: "\u2014", status.uptimeSeconds))
+}
+
+@Composable
+fun NextProductionSlotText(state: MonitorState, running: Boolean) {
+    val now = rememberDisplayTime(running)
+    val next = DisplayTime.nextSlot(state, now)
+    Text(if (next == null) stringResource(R.string.no_next_slot)
+        else stringResource(R.string.next_slot, next.slot, DisplayTime.remainingSeconds(next, now)))
 }
 
 object DisplayTime {

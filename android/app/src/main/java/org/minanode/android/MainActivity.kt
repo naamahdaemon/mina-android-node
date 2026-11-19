@@ -82,8 +82,6 @@ class MainActivity : ComponentActivity() {
                 val openNavigationLabel = stringResource(R.string.open_navigation)
                 val emptyLogsLabel = stringResource(R.string.logs_empty)
                 val state by NodeState.flow.collectAsStateWithLifecycle()
-                val displayNow = rememberDisplayTime(state.run == RunPhase.SUSPENDED)
-                val displayedBlockAge = if (state.run == RunPhase.SUSPENDED) state.status.ageAt(displayNow) else state.status.ageSeconds
                 val store = remember { ProfileStore(this@MainActivity) }
                 val vault = remember { ProducerVault(this@MainActivity) }
                 val profileSaver = remember { Saver<NodeProfile, String>(
@@ -261,7 +259,7 @@ class MainActivity : ComponentActivity() {
                             Metric(stringResource(R.string.height), state.status.height?.toString() ?: "\u2014", Modifier.weight(1f))
                             Metric(stringResource(R.string.peers), state.status.peers.toString(), Modifier.weight(1f))
                         }
-                        Text(stringResource(R.string.block_age_uptime, displayedBlockAge?.toString() ?: "\u2014", state.status.uptimeSeconds))
+                        BlockAgeUptimeText(state.status, state.run == RunPhase.SUSPENDED)
                         Text(stringResource(R.string.saved_state_api, state.status.persistence.resolve(context), NodeApi.PORT), style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.selected_mode, stringResource(if (profile.producer) R.string.producer_mode else R.string.observer_mode)), style = MaterialTheme.typography.bodySmall)
                         if (state.vpn) Card {
