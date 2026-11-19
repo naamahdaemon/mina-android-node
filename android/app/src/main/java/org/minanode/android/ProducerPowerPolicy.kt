@@ -11,13 +11,19 @@ object ProducerPowerPolicy {
     fun canSuspendManually(enabled: Boolean, running: Boolean, alarmsAllowed: Boolean, safeWakeAt: Long?): Boolean =
         enabled && running && alarmsAllowed && safeWakeAt != null
 
-    fun retainedSlots(previous: List<ProductionSlot>, announced: List<ProductionSlot>, now: Long, leadSeconds: Int): List<ProductionSlot> {
-        val protected = previous.filter { it.timeMs + AFTER_SLOT_MS >= now && it.timeMs <= now + leadSeconds * 1000L }
+    private fun discardedBeforeProof(block: ProducedBlock): Boolean = block.status == "Discarded" &&
+        block.discardedMs != null && block.proofStartMs == null && block.proofEndMs == null && block.committedMs == null
+
+    fun retainedSlots(previous: List<ProductionSlot>, announced: List<ProductionSlot>, now: Long, leadSeconds: Int,
+        blocks: List<ProducedBlock> = emptyList()): List<ProductionSlot> {
+        val abandoned = blocks.filter(::discardedBeforeProof).map { it.slot }.toSet()
+        val protected = previous.filter { it.slot !in abandoned && it.timeMs + AFTER_SLOT_MS >= now && it.timeMs <= now + leadSeconds * 1000L }
         val next = announced.filter { it.timeMs > now }.distinct().sortedBy { it.timeMs }.take(10)
         return (protected + next).distinct().sortedBy { it.timeMs }
     }
 
     fun productionProtected(now: Long, blocks: List<ProducedBlock>): Boolean = blocks.any { block ->
+        if (discardedBeforeProof(block)) return@any false
         val latest = listOfNotNull(block.slotTimeMs, block.producedMs, block.proofStartMs, block.proofEndMs,
             block.committedMs, block.discardedMs).maxOrNull()
         if (latest == null) false

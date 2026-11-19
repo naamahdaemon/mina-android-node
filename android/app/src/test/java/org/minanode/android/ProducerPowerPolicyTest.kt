@@ -122,4 +122,33 @@ class ProducerPowerPolicyTest {
             now - 60000, true, blocks = listOf(finished())))
     }
 
+    @Test fun confirmedDiscardBeforeProofDoesNotRequirePostProductionWait() {
+        val early = finished("Discarded", committed = null, proofEnd = null)
+            .copy(slotTimeMs = now + 1000, proofStartMs = null, discardedMs = now)
+        val next = ProductionSlot(8, now + 7200000)
+        val slots = ProducerPowerPolicy.retainedSlots(listOf(ProductionSlot(7, now + 1000), next),
+            listOf(next), now, 600, listOf(early))
+        assertEquals(listOf(next), slots)
+        assertFalse(ProducerPowerPolicy.productionProtected(now, listOf(early)))
+        assertNotNull(ProducerPowerPolicy.wakeAt(now, slots, 600, now - 180000,
+            now - 60000, true, blocks = listOf(early)))
+    }
+    @Test fun discardDuringProofStillRequiresGraceEvenWithoutProofDuration() {
+        val during = finished("Discarded", committed = null, proofEnd = null).copy(discardedMs = now)
+        assertNull(during.proofSeconds)
+        assertTrue(ProducerPowerPolicy.productionProtected(now, listOf(during)))
+    }
+    @Test fun stillAnnouncedFutureSlotIsProtectedDespiteAnOldDiscardRecord() {
+        val slot = ProductionSlot(7, now + 1000)
+        val early = finished("Discarded", committed = null, proofEnd = null)
+            .copy(slotTimeMs = slot.timeMs, proofStartMs = null, discardedMs = now)
+        val slots = ProducerPowerPolicy.retainedSlots(listOf(slot), listOf(slot, ProductionSlot(8, now + 7200000)), now, 600, listOf(early))
+        assertTrue(slot in slots)
+        assertNull(wake(slots))
+    }
+    @Test fun incompleteDiscardMetadataCannotBypassGrace() {
+        val unknown = finished("Discarded", committed = null, proofEnd = null).copy(proofStartMs = null)
+        assertTrue(ProducerPowerPolicy.productionProtected(now, listOf(unknown)))
+    }
+
 }

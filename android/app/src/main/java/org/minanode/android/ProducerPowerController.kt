@@ -68,7 +68,7 @@ class ProducerPowerController(
         val fresh = measured.producerError == null
         if (fresh) {
             val next = measured.upcomingSlots.filter { it.timeMs > now }.distinct().sortedBy { it.timeMs }.take(10)
-            slots = ProducerPowerPolicy.retainedSlots(slots, next, now, lead)
+            slots = ProducerPowerPolicy.retainedSlots(slots, next, now, lead, measured.blocks)
             if (next != savedSlots) {
                 val out = schedule.startWrite()
                 try {
