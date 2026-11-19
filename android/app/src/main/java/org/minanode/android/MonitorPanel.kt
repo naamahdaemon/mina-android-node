@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.rememberScrollState
@@ -114,79 +113,83 @@ private fun SignalChart(title: String, samples: List<ResourceSample>, color: Col
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
     fun n(value: Double?, digits: Int = 1) = number(value, digits, locale)
     Text(title, style = MaterialTheme.typography.labelMedium)
-    val values = samples.map { valueOf(it)?.takeIf { value -> value.isFinite() } }
-    if (values.all { it == null }) {
-        Text(stringResource(R.string.no_measurements_period), style = MaterialTheme.typography.bodySmall)
-        return
-    }
+    val values = samples.map { valueOf(it)?.takeIf { value -> value.isFinite() && value >= 0 } }
+    val hasValues = values.any { it != null }
     val maximum = fixedMaximum?.takeIf { it.isFinite() && it > 0 } ?: ResourceChartScale.maximum(values)
-    val start = bounds?.first ?: samples.first().timeMs
-    val end = bounds?.last ?: samples.last().timeMs
+    val start = bounds?.first ?: samples.firstOrNull()?.timeMs ?: 0L
+    val end = bounds?.last ?: samples.lastOrNull()?.timeMs ?: start
     val formatter = remember(locale) { DateTimeFormatter.ofPattern("HH:mm:ss", locale).withZone(ZoneId.systemDefault()) }
-    val description = stringResource(R.string.chart_description, title, n(maximum), formatter.format(Instant.ofEpochMilli(start)), formatter.format(Instant.ofEpochMilli(end)))
+    val description = if (hasValues) stringResource(R.string.chart_description, title, n(maximum),
+        formatter.format(Instant.ofEpochMilli(start)), formatter.format(Instant.ofEpochMilli(end)))
+        else stringResource(R.string.no_measurements_period)
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = textColor.copy(alpha = 0.2f)
     val paint = remember(textColor) { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         this.color = textColor.toArgb()
         typeface = android.graphics.Typeface.MONOSPACE
     } }
-    // Keep peaks when downsampling the six-hour window to a phone-sized chart.
-    val reduced = samples.chunked(maxOf(1, (samples.size + 239) / 240)).map { bucket ->
-        bucket.filter { valueOf(it)?.isFinite() == true }.maxByOrNull { valueOf(it)!! } ?: bucket.first()
-    }
-    Canvas(modifier.fillMaxWidth().height(180.dp).semantics {
-        contentDescription = description
-    }) {
-        paint.textSize = 11.sp.toPx()
-        val labels = (0..4).map { n(maximum * it / 4, if (maximum < 10) 2 else if (maximum < 100) 1 else 0) }
-        val left = labels.maxOf { paint.measureText(it) } + 10.dp.toPx()
-        val right = size.width - 4.dp.toPx()
-        val fontHeight = paint.fontMetrics.descent - paint.fontMetrics.ascent
-        val top = fontHeight / 2 + 2.dp.toPx()
-        val bottom = size.height - fontHeight * 1.8f - 4.dp.toPx()
-        if (right <= left || bottom <= top) return@Canvas
-        val native = drawContext.canvas.nativeCanvas
-        paint.textAlign = android.graphics.Paint.Align.RIGHT
-        labels.forEachIndexed { index, label ->
-            val y = bottom - index / 4f * (bottom - top)
-            drawLine(gridColor, Offset(left, y), Offset(right, y), 1.dp.toPx())
-            native.drawText(label, left - 7.dp.toPx(), y - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2, paint)
-        }
-        drawLine(gridColor, Offset(left, top), Offset(left, bottom), 1.dp.toPx())
-        val timeWidth = paint.measureText("00:00:00")
-        val fractions = when {
-            start == end || right - left < timeWidth * 2 + 12.dp.toPx() -> listOf(0.5f)
-            right - left < timeWidth * 3 + 24.dp.toPx() -> listOf(0f, 1f)
-            else -> listOf(0f, 0.5f, 1f)
-        }
-        fractions.forEach { fraction ->
-            val time = start + ((end - start) * fraction.toDouble()).toLong()
-            val x = left + fraction * (right - left)
-            drawLine(gridColor, Offset(x, top), Offset(x, bottom), 1.dp.toPx())
-            paint.textAlign = when (fraction) {
-                0f -> android.graphics.Paint.Align.LEFT
-                1f -> android.graphics.Paint.Align.RIGHT
-                else -> android.graphics.Paint.Align.CENTER
+    val series = ResourceChartSeries.segments(samples, start..end, valueOf = valueOf)
+    // Keep a stable gesture surface even when the selected interval is empty.
+    Box(modifier.fillMaxWidth().height(180.dp)) {
+        Canvas(Modifier.fillMaxSize().semantics {
+            contentDescription = description
+        }) {
+            paint.textSize = 11.sp.toPx()
+            val labels = (0..4).map { n(maximum * it / 4, if (maximum < 10) 2 else if (maximum < 100) 1 else 0) }
+            val left = labels.maxOf { paint.measureText(it) } + 10.dp.toPx()
+            val right = size.width - 4.dp.toPx()
+            val fontHeight = paint.fontMetrics.descent - paint.fontMetrics.ascent
+            val top = fontHeight / 2 + 2.dp.toPx()
+            val bottom = size.height - fontHeight * 1.8f - 4.dp.toPx()
+            if (right <= left || bottom <= top) return@Canvas
+            val native = drawContext.canvas.nativeCanvas
+            paint.textAlign = android.graphics.Paint.Align.RIGHT
+            labels.forEachIndexed { index, label ->
+                val y = bottom - index / 4f * (bottom - top)
+                drawLine(gridColor, Offset(left, y), Offset(right, y), 1.dp.toPx())
+                native.drawText(label, left - 7.dp.toPx(), y - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2, paint)
             }
-            native.drawText(formatter.format(Instant.ofEpochMilli(time)), x, size.height - paint.fontMetrics.descent, paint)
-        }
-        markers.filter { it in start..end }.forEach { time ->
-            val x = left + ResourceChartScale.timeFraction(time, start, end) * (right - left)
-            drawLine(color.copy(alpha = 0.5f), Offset(x, top), Offset(x, bottom), 1.dp.toPx(),
-                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())))
-        }
-        val path = Path(); var connected = false
-        reduced.forEach { sample ->
-            val value = valueOf(sample)?.takeIf { it.isFinite() }
-            if (value == null) connected = false else {
-                val x = left + ResourceChartScale.timeFraction(sample.timeMs, start, end) * (right - left)
-                val y = bottom - (value / maximum * (bottom - top)).toFloat().coerceIn(0f, bottom - top)
-                if (connected) path.lineTo(x, y) else path.moveTo(x, y)
-                if (!connected) drawCircle(color, 2.dp.toPx(), Offset(x, y))
-                connected = true
+            drawLine(gridColor, Offset(left, top), Offset(left, bottom), 1.dp.toPx())
+            val timeWidth = paint.measureText("00:00:00")
+            val fractions = when {
+                start == end || right - left < timeWidth * 2 + 12.dp.toPx() -> listOf(0.5f)
+                right - left < timeWidth * 3 + 24.dp.toPx() -> listOf(0f, 1f)
+                else -> listOf(0f, 0.5f, 1f)
+            }
+            fractions.forEach { fraction ->
+                val time = start + ((end - start) * fraction.toDouble()).toLong()
+                val x = left + fraction * (right - left)
+                drawLine(gridColor, Offset(x, top), Offset(x, bottom), 1.dp.toPx())
+                paint.textAlign = when (fraction) {
+                    0f -> android.graphics.Paint.Align.LEFT
+                    1f -> android.graphics.Paint.Align.RIGHT
+                    else -> android.graphics.Paint.Align.CENTER
+                }
+                if (start != 0L || end != 0L || samples.isNotEmpty())
+                native.drawText(formatter.format(Instant.ofEpochMilli(time)), x, size.height - paint.fontMetrics.descent, paint)
+            }
+            markers.filter { it in start..end }.forEach { time ->
+                val x = left + ResourceChartScale.timeFraction(time, start, end) * (right - left)
+                drawLine(color.copy(alpha = 0.5f), Offset(x, top), Offset(x, bottom), 1.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())))
+            }
+            series.forEach { segment ->
+                val path = Path()
+                segment.forEachIndexed { index, point ->
+                    val x = left + ResourceChartScale.timeFraction(point.timeMs, start, end) * (right - left)
+                    val y = bottom - (point.value / maximum * (bottom - top)).toFloat().coerceIn(0f, bottom - top)
+                    if (index == 0) {
+                        path.moveTo(x, y)
+                        drawCircle(color, 2.dp.toPx(), Offset(x, y))
+                    } else path.lineTo(x, y)
+                }
+                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
             }
         }
-        drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+        if (!hasValues) Surface(Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)) {
+            Text(stringResource(R.string.no_measurements_period), Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall)
+        }
     }
     Text(stringResource(R.string.chart_axis_help), style = MaterialTheme.typography.bodySmall)
 }
@@ -370,7 +373,12 @@ private fun chartGestures(onTransform: (Float, Float, Float) -> Unit): Modifier 
                 if (event.changes.count { it.pressed } >= 2 ||
                     (!claimed && kotlin.math.abs(horizontal) > viewConfiguration.touchSlop && kotlin.math.abs(horizontal) > kotlin.math.abs(vertical))) claimed = true
                 if (claimed && event.changes.any { it.pressed }) {
-                    transform(event.calculateZoom(), pan.x / size.width.coerceAtLeast(1), event.calculateCentroid().x / size.width.coerceAtLeast(1))
+                    // Ignore pointer-count transitions instead of jumping the scale/anchor.
+                    if (event.changes.none { it.pressed != it.previousPressed }) {
+                        val pointers = event.changes.filter { it.pressed && it.previousPressed }
+                        val zoom = ChartGesture.horizontalZoom(pointers.map { it.previousPosition.x }, pointers.map { it.position.x }, viewConfiguration.touchSlop)
+                        transform(zoom, pan.x / size.width.coerceAtLeast(1), event.calculateCentroid().x / size.width.coerceAtLeast(1))
+                    }
                     event.changes.forEach { it.consume() }
                 }
             } while (event.changes.any { it.pressed })
