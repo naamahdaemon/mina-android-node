@@ -3,13 +3,16 @@ package org.minanode.android
 import androidx.compose.runtime.*
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
@@ -57,21 +60,26 @@ fun BlockAgeUptimeText(state: NodeUiState) {
         })
     }
     val ageText = age?.let { if (it < 60) "${it}s" else DisplayTime.compactDuration(it) } ?: "\u2014"
-    val text = stringResource(if (suspended) R.string.node_timing_wake else R.string.node_timing_compact,
-        ageText, DisplayTime.compactDuration(state.status.uptimeSeconds), pause)
-    val measurer = rememberTextMeasurer()
-    val base = MaterialTheme.typography.bodyLarge
-    val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val width = with(density) { maxWidth.roundToPx() }
-        val font = remember(text, width, base, density.fontScale) {
-            generateSequence(base.fontSize.value) { it - 0.5f }.takeWhile { it >= 10f }.firstOrNull { size ->
-                measurer.measure(AnnotatedString(text), style = base.copy(fontSize = size.sp),
-                    maxLines = 1, softWrap = false).size.width <= width
-            } ?: 10f
-        }
-        Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-            style = base.copy(fontSize = font.sp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TimingCell(stringResource(R.string.timing_age), ageText, Modifier.weight(1f))
+        TimingCell(stringResource(R.string.timing_uptime),
+            DisplayTime.compactDuration(state.status.uptimeSeconds), Modifier.weight(1f))
+        TimingCell(stringResource(if (suspended) R.string.timing_wake else R.string.timing_sleep),
+            pause, Modifier.weight(1f))
+    }
+}
+
+/** Equal-width cells and fixed-size monospace values never resize as time ticks. */
+@Composable
+private fun TimingCell(label: String, value: String, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, modifier = Modifier.fillMaxWidth(), fontFamily = FontFamily.Monospace,
+            fontSize = 16.sp, textAlign = TextAlign.Center, maxLines = 1,
+            softWrap = false, overflow = TextOverflow.Ellipsis)
     }
 }
 

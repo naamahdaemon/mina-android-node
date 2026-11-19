@@ -292,7 +292,6 @@
     <string name="power_resume_help">Les commandes manuelles conservent le réglage automatique. Après Reprendre, la suspension automatique attend au moins 2 minutes ; Suspendre reste disponible uniquement si les conditions sont sûres.</string>
     <string name="power_suspend">Suspendre</string>
     <string name="power_resume">Reprendre</string>
-    <string name="node_timing_compact">Âge %1$s · Actif %2$s · Pause %3$s</string>
     <string name="suspend_line_check">vérif.</string>
     <string name="suspend_line_off">non</string>
     <string name="suspend_line_sync">sync</string>
@@ -300,5 +299,8 @@
     <string name="suspend_line_alarm">alarme</string>
     <string name="suspend_line_slot">slot</string>
     <string name="suspend_line_production">prod.</string>
-    <string name="node_timing_wake">Âge %1$s · Actif %2$s · Reprise %3$s</string>
+    <string name="timing_age">Âge</string>
+    <string name="timing_uptime">Actif</string>
+    <string name="timing_sleep">Pause</string>
+    <string name="timing_wake">Reprise</string>
 </resources>
