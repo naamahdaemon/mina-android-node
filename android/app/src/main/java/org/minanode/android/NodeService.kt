@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.lang.ref.WeakReference
+import java.util.concurrent.atomic.AtomicBoolean
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.CharBuffer
@@ -35,12 +37,15 @@ class NodeService : Service() {
     @Volatile private var powerController: ProducerPowerController? = null
     private var producerFile: File? = null
     @Volatile private var nodePid: Int? = null
+    @Volatile private var suspendedMonitor: ProductionMonitor? = null
+    private val resourceSamplePending = AtomicBoolean(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         files = NodeFiles(this)
+        resourceService = WeakReference(this)
         productionAlerts = ProductionAlerts(this).also { it.createChannel() }
         requireNotNull(getSystemService(NotificationManager::class.java)).createNotificationChannel(
             NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW)
@@ -156,6 +161,7 @@ class NodeService : Service() {
             val poll = scope.launch {
                 var lastWake = SystemClock.elapsedRealtime()
                 val monitor = ProductionMonitor(this@NodeService, files)
+                suspendedMonitor = monitor
                 while (isActive && process.isAlive) {
                     val vpn = requireNotNull(getSystemService(ConnectivityManager::class.java)).let { manager ->
                         manager.getNetworkCapabilities(manager.activeNetwork)
@@ -207,6 +213,7 @@ class NodeService : Service() {
                         powerController?.close(); powerController = null
                         child = null
                         nodePid = null
+                        suspendedMonitor = null
                         producerFile?.delete(); producerFile = null
                         files.append("=== Process ended: $code ===")
                         releaseWake()
@@ -253,12 +260,30 @@ class NodeService : Service() {
         }
     }
 
+    private fun collectSuspendedResources() {
+        if (NodeState.flow.value.run != RunPhase.SUSPENDED || child?.isAlive != true) return
+        val monitor = suspendedMonitor ?: return
+        val pid = nodePid ?: return
+        if (!resourceSamplePending.compareAndSet(false, true)) return
+        scope.launch {
+            if (NodeState.flow.value.run != RunPhase.SUSPENDED || nodePid != pid || suspendedMonitor !== monitor) return@launch
+            val measured = runCatching { monitor.sampleSuspendedResources(pid) {
+                NodeState.flow.value.run == RunPhase.SUSPENDED && nodePid == pid && suspendedMonitor === monitor && child?.isAlive == true
+            } }.getOrNull() ?: return@launch
+            NodeState.flow.update {
+                if (it.run == RunPhase.SUSPENDED && nodePid == pid && suspendedMonitor === monitor) it.copy(monitor = measured) else it
+            }
+        }.invokeOnCompletion { resourceSamplePending.set(false) }
+    }
+
     private fun releaseWake() {
         wake?.let { if (it.isHeld) it.release() }
         wake = null
     }
 
     override fun onDestroy() {
+        if (resourceService?.get() === this) resourceService = null
+        suspendedMonitor = null
         powerController?.close()
         productionAlerts.cancel()
         LaunchGate.clear()
@@ -300,6 +325,9 @@ class NodeService : Service() {
     }
 
     companion object {
+        @Volatile private var resourceService: WeakReference<NodeService>? = null
+        fun sampleSuspendedResources() { resourceService?.get()?.collectSuspendedResources() }
+
         const val START = "org.minanode.android.START"
         const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
         const val POWER_RESUME = "org.minanode.android.POWER_RESUME"
