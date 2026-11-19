@@ -110,7 +110,7 @@ The hash-based explorer link uses Minascan by default. Settings accepts a custom
 
 The header shows the next announced won slot with a countdown and progress over the final hour: green, amber below five minutes, red below one minute.
 
-In **Settings Ã¢â€ â€™ Application settings**, set the notification lead time to **1Ã¢â‚¬â€œ3600 seconds** (default 60) and save. The running service reads the new setting without restarting. Each announced scheduled slot is checked independently; notifications are deduplicated, expire at slot time and are cancelled when the schedule changes or the node stops. Changing the lead time does not replay alerts already sent for that slot.
+In **Settings > Application settings**, set the initial production alert lead time to **1-3600 seconds** (default 60). Optionally enter a reminder interval in seconds: it must be positive and strictly smaller than the initial lead time. Leave it blank to keep one notification per slot. Save applies both settings without restarting the node. Reminders begin after the actual initial notification, stop at slot time or when the slot leaves the schedule, and reuse the same notification instead of stacking entries. The last emission time is retained across service restarts; missed reminders are not replayed in a burst. Android may silence or throttle repeated sounds. Changing the lead time does not replay the initial alert.
 
 Android notification permission and the production-alert channel must be enabled. Late slot discovery, polling, OS scheduling and device suspension may shorten or prevent an alert. There is no exact-alarm or production guarantee. Public lock-screen text omits the slot, network and time.
 

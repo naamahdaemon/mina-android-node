@@ -226,7 +226,7 @@
     <string name="fullscreen">Full screen</string>
     <string name="fullscreen_help">Hide system bars. Swipe from an edge to reveal them temporarily.</string>
     <string name="production_alert_channel">Upcoming block production</string>
-    <string name="production_alert_help">An alert is sent at the configured lead time before each announced won slot while the node is running. Allow notifications in Android settings. Late slot discovery may shorten the notice; already sent alerts are not repeated.</string>
+    <string name="production_alert_help">An initial alert is sent at the configured lead time while the node is running. Optional reminders follow at the configured interval until the slot starts or is no longer scheduled. Allow notifications in Android settings. Late discovery may shorten the notice; missed reminders are not replayed.</string>
     <string name="production_alert_title">Mina · Production approaching</string>
     <string name="production_alert_private">An upcoming production opportunity is scheduled.</string>
     <string name="production_alert_body">%1$s · slot %2$d in approximately %3$d seconds.</string>
@@ -271,4 +271,8 @@
     <string name="wallet_exported">Encrypted key file saved. Keep its password separately and securely.</string>
     <string name="wallet_export_failed">Could not save the encrypted key file. Choose another destination and try again.</string>
     <string name="wallet_pending">An encrypted key is already awaiting backup. Resume it before generating another.</string>
+    <string name="production_alert_reminder">Reminder interval (seconds, optional)</string>
+    <string name="production_alert_reminder_help">Leave blank for no reminders. Otherwise enter a positive whole number strictly below the initial alert lead time. Tap Save to apply both settings.</string>
+    <string name="production_alert_reminder_off">Applied reminders: disabled</string>
+    <string name="production_alert_reminder_current">Applied reminders: every %1$d seconds</string>
 </resources>

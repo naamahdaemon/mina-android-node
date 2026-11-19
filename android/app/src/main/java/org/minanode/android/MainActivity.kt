@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var dark by remember { mutableStateOf(appearance.dark()) }
             var fullscreen by remember { mutableStateOf(appearance.fullscreen()) }
+            var alertReminderSeconds by remember { mutableStateOf(appearance.productionAlertReminderSeconds()) }
             var alertLeadSeconds by remember { mutableIntStateOf(appearance.productionAlertLeadSeconds()) }
             DisposableEffect(dark, fullscreen) {
                 window.decorView.doOnAttach { view ->
@@ -195,11 +196,13 @@ class MainActivity : ComponentActivity() {
                                 .padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (current == NodePage.SETTINGS) NavigationSettings(appearance, hamburger, onHamburger = { hamburger = it; appearance.setHamburger(it) },
                             onAndroidSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) })
-                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart, fullscreen, alertLeadSeconds,
+                        if (current == NodePage.SETTINGS) AppearanceSettings(appearance.language(), dark, !preparingStart, fullscreen, alertLeadSeconds, alertReminderSeconds,
                             onLanguage = { appearance.setLanguage(it) },
                             onDark = { appearance.setDark(it); dark = it; setTheme(appearance.activityTheme()) },
                             onFullscreen = { appearance.setFullscreen(it); fullscreen = it },
-                            onAlertLead = { appearance.setProductionAlertLeadSeconds(it); alertLeadSeconds = it })
+                            onAlertTiming = { lead, reminder ->
+                                appearance.setProductionAlertTiming(lead, reminder)
+                                alertLeadSeconds = lead; alertReminderSeconds = reminder })
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },

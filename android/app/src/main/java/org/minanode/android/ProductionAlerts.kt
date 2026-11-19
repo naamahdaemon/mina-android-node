@@ -17,9 +17,17 @@ data class ProductionSlot(val slot: Long, val timeMs: Long) {
 }
 
 object ProductionAlertPolicy {
-    fun due(slots: List<ProductionSlot>, network: String, nowMs: Long, sent: Set<String>, leadSeconds: Int = 60): List<ProductionSlot> {
+    fun due(slots: List<ProductionSlot>, network: String, nowMs: Long, sent: Set<String>, leadSeconds: Int = 60,
+        reminderSeconds: Int? = null, lastSentMs: Map<String, Long> = emptyMap()): List<ProductionSlot> {
         require(leadSeconds in 1..3600)
-        return slots.filter { it.slot >= 0 && it.timeMs - nowMs in 1..(leadSeconds * 1000L) && it.key(network) !in sent }
+        require(reminderSeconds == null || reminderSeconds in 1 until leadSeconds)
+        return slots.filter {
+            val key = it.key(network)
+            val last = lastSentMs[key]
+            it.slot >= 0 && it.timeMs > nowMs &&
+                (if (key !in sent) it.timeMs - nowMs <= leadSeconds * 1000L
+                else reminderSeconds != null && last != null && nowMs >= last && nowMs - last >= reminderSeconds * 1000L)
+        }
             .distinctBy { it.key(network) }.sortedBy { it.timeMs }
     }
 }
@@ -28,6 +36,8 @@ class ProductionAlerts(private val context: Context) {
     private val prefs = context.getSharedPreferences("production-alerts", Context.MODE_PRIVATE)
     private val manager = requireNotNull(context.getSystemService(NotificationManager::class.java))
     private val sent = prefs.getStringSet("sent", emptySet()).orEmpty().toMutableSet()
+    // Keep the last actual emission across service/process restarts; never catch up missed reminders.
+    private val lastSentMs = sent.associateWith { prefs.getLong("last:$it", System.currentTimeMillis()) }.toMutableMap()
     fun createChannel() {
         manager.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.production_alert_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = context.getString(R.string.production_alert_help)
@@ -40,7 +50,9 @@ class ProductionAlerts(private val context: Context) {
         val valid = slots.map { it.key(network) }.toSet()
         manager.activeNotifications.filter { it.notification.channelId == CHANNEL && it.tag !in valid }
             .forEach { manager.cancel(it.tag, it.id) }
-        ProductionAlertPolicy.due(slots, network, nowMs, sent, AppearancePreferences(context).productionAlertLeadSeconds()).forEach { slot ->
+        val settings = AppearancePreferences(context)
+        ProductionAlertPolicy.due(slots, network, nowMs, sent, settings.productionAlertLeadSeconds(),
+            settings.productionAlertReminderSeconds(), lastSentMs).forEach { slot ->
             val open = PendingIntent.getActivity(context, 2,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -49,14 +61,19 @@ class ProductionAlerts(private val context: Context) {
             val notification = NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_node)
                 .setContentTitle(context.getString(R.string.production_alert_title))
                 .setContentText(context.getString(R.string.production_alert_body, network, slot.slot, ((slot.timeMs - nowMs + 999) / 1000)))
-                .setContentIntent(open).setAutoCancel(true).setOnlyAlertOnce(true)
+                .setContentIntent(open).setAutoCancel(true).setOnlyAlertOnce(false)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(public)
                 .setTimeoutAfter((slot.timeMs - nowMs).coerceAtLeast(1)).build()
             // The tag separates slots and networks from each other and from the foreground notification.
             manager.notify(slot.key(network), 2, notification)
             sent += slot.key(network)
+            lastSentMs[slot.key(network)] = nowMs
             val retained = sent.sortedBy { it.substringAfterLast(':').toLongOrNull() ?: 0 }.takeLast(256).toSet()
-            prefs.edit().putStringSet("sent", retained).commit()
+            val editor = prefs.edit().putStringSet("sent", retained)
+            (sent - retained).forEach { editor.remove("last:$it") }
+            retained.forEach { key -> lastSentMs[key]?.let { editor.putLong("last:$key", it) } }
+            editor.commit()
+            lastSentMs.keys.retainAll(retained)
             sent.retainAll(retained)
         }
     }

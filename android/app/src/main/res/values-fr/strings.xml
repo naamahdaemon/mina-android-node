@@ -226,7 +226,7 @@
     <string name="fullscreen">Plein écran</string>
     <string name="fullscreen_help">Masquer les barres système. Glissez depuis un bord pour les afficher temporairement.</string>
     <string name="production_alert_channel">Production de bloc à venir</string>
-    <string name="production_alert_help">Une alerte est envoyée au délai configuré avant chaque slot gagné annoncé, lorsque le nœud fonctionne. Autorisez les notifications dans les réglages Android. Un slot découvert tardivement peut réduire le préavis ; les alertes déjà envoyées ne sont pas répétées.</string>
+    <string name="production_alert_help">Une alerte initiale est envoyée au délai configuré lorsque le nœud fonctionne. Les rappels facultatifs suivent à l’intervalle choisi jusqu’au début du slot ou à son retrait du planning. Autorisez les notifications dans les réglages Android. Une découverte tardive peut réduire le préavis ; les rappels manqués ne sont pas rejoués.</string>
     <string name="production_alert_title">Mina · Production imminente</string>
     <string name="production_alert_private">Une opportunité de production approche.</string>
     <string name="production_alert_body">%1$s · slot %2$d dans environ %3$d secondes.</string>
@@ -271,4 +271,8 @@
     <string name="wallet_exported">Fichier de clé chiffré sauvegardé. Conservez son mot de passe séparément et en sécurité.</string>
     <string name="wallet_export_failed">Impossible de sauvegarder le fichier chiffré. Choisissez une autre destination et réessayez.</string>
     <string name="wallet_pending">Une clé chiffrée attend déjà sa sauvegarde. Reprenez ce parcours avant d’en générer une autre.</string>
+    <string name="production_alert_reminder">Intervalle de rappel (secondes, facultatif)</string>
+    <string name="production_alert_reminder_help">Laissez vide pour désactiver les rappels. Sinon, indiquez un entier positif strictement inférieur au délai de l’alerte initiale. Touchez Enregistrer pour appliquer les deux réglages.</string>
+    <string name="production_alert_reminder_off">Rappels appliqués : désactivés</string>
+    <string name="production_alert_reminder_current">Rappels appliqués : toutes les %1$d secondes</string>
 </resources>
