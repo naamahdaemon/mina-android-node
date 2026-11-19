@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 def load(name):
@@ -62,6 +64,47 @@ class DistributionTests(unittest.TestCase):
             result = licenses.pom_licenses(child, resolver)
             self.assertEqual(result[0]['name'], 'Apache 2.0')
             self.assertEqual(resolved, ['org.example:parent:1'])
+
+    def test_parent_download_retries_temporary_404_and_caches_success(self):
+        url = 'https://repo.maven.apache.org/maven2/example/parent/1/parent-1.pom'
+        response = io.BytesIO(b'<project/>')
+        response.url = url
+        with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)), \
+                patch.object(licenses.urllib.request, 'urlopen', side_effect=[
+                    HTTPError(url, 404, 'temporary', {}, None), HTTPError(url, 404, 'missing', {}, None), response]) as fetch, \
+                patch.object(licenses.time, 'sleep'):
+            result = licenses.parent_pom('example:parent:1')
+            self.assertEqual(result.read_bytes(), b'<project/>')
+            self.assertEqual(fetch.call_count, 3)
+            self.assertEqual(licenses.parent_pom('example:parent:1'), result)
+            self.assertEqual(fetch.call_count, 3)
+
+    def test_parent_download_still_fails_closed_when_missing(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)), \
+                patch.object(licenses.urllib.request, 'urlopen', side_effect=HTTPError('https://repo.maven.apache.org/', 404, 'missing', {}, None)) as fetch, \
+                patch.object(licenses.time, 'sleep'):
+            with self.assertRaisesRegex(ValueError, 'unavailable after 3 attempts'):
+                licenses.parent_pom('example:parent:1')
+            self.assertEqual(fetch.call_count, 6)
+            self.assertFalse(list(Path(temp).rglob('*.pom')))
+
+    def test_parent_download_retries_connection_failures(self):
+        response = io.BytesIO(b'<project/>')
+        response.url = 'https://repo.maven.apache.org/example.pom'
+        with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)), \
+                patch.object(licenses.urllib.request, 'urlopen', side_effect=[URLError('temporary'), response]), \
+                patch.object(licenses.time, 'sleep'):
+            self.assertEqual(licenses.parent_pom('example:parent:1').read_bytes(), b'<project/>')
+
+    def test_parent_download_does_not_cache_invalid_xml_or_follow_untrusted_host(self):
+        for data, url in [(b'<broken', 'https://repo.maven.apache.org/example.pom'),
+                          (b'<project/>', 'https://untrusted.example/example.pom')]:
+            response = io.BytesIO(data); response.url = url
+            with tempfile.TemporaryDirectory() as temp, patch.object(licenses, 'ROOT', Path(temp)), \
+                    patch.object(licenses.urllib.request, 'urlopen', return_value=response):
+                with self.assertRaises((ValueError, licenses.ET.ParseError)):
+                    licenses.parent_pom('example:parent:1')
+                self.assertFalse(list(Path(temp).rglob('*.pom')))
 
     def test_unknown_license_requires_review(self):
         with tempfile.TemporaryDirectory() as temp:
