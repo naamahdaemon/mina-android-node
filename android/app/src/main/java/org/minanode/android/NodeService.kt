@@ -48,7 +48,12 @@ class NodeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == POWER_WAKE || intent?.action == RECONFIGURE) {
+        if (intent?.action == POWER_RESUME) {
+            val settings = ProducerPowerPreferences(this)
+            settings.save(false, settings.wakeSeconds())
+            powerController?.wake()
+            if (child == null) stopSelf()
+        } else if (intent?.action == POWER_WAKE || intent?.action == RECONFIGURE) {
             val controller = powerController
             if (intent.action == RECONFIGURE || intent.getStringExtra("power-token") == controller?.token) controller?.wake()
             if (child == null) stopSelf()
@@ -294,6 +299,7 @@ class NodeService : Service() {
     companion object {
         const val START = "org.minanode.android.START"
         const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
+        const val POWER_RESUME = "org.minanode.android.POWER_RESUME_CONTINUOUS"
         const val POWER_WAKE = "org.minanode.android.POWER_WAKE"
         const val RECONFIGURE = "org.minanode.android.POWER_RECONFIGURE"
         const val STOP = "org.minanode.android.STOP"

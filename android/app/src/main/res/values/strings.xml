@@ -289,4 +289,6 @@
     <string name="power_waiting">Waiting for next block production slot time</string>
     <string name="power_resuming">Resuming synchronization before block production</string>
     <string name="power_next_wake">Next synchronization wake-up: %1$s</string>
+    <string name="power_resume_continuous">Resume continuously</string>
+    <string name="power_resume_help">Resumes the same node without a password and turns off power saving until you enable it again in Settings.</string>
 </resources>

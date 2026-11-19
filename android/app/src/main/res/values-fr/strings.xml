@@ -289,4 +289,6 @@
     <string name="power_waiting">En attente du prochain créneau de production de bloc</string>
     <string name="power_resuming">Reprise de la synchronisation avant production</string>
     <string name="power_next_wake">Prochain réveil de synchronisation : %1$s</string>
+    <string name="power_resume_continuous">Reprendre en continu</string>
+    <string name="power_resume_help">Reprend le même nœud sans mot de passe et désactive le mode économie jusqu’à sa réactivation dans les réglages.</string>
 </resources>

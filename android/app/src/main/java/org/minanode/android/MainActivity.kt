@@ -247,6 +247,12 @@ class MainActivity : ComponentActivity() {
                                         startService(Intent(this@MainActivity, NodeService::class.java).setAction(NodeService.STOP))
                                     }) { Text(stringResource(R.string.stop)) }
                                 }
+                                if (state.run == RunPhase.SUSPENDED) {
+                                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
+                                        startService(Intent(this@MainActivity, NodeService::class.java).setAction(NodeService.POWER_RESUME))
+                                    }) { Text(stringResource(R.string.power_resume_continuous)) }
+                                    Text(stringResource(R.string.power_resume_help), style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
