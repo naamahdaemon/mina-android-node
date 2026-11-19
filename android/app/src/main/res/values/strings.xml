@@ -288,7 +288,7 @@
     <string name="power_suspended">SUSPENDED</string>
     <string name="power_waiting">Waiting for next block production slot time</string>
     <string name="power_resuming">Resuming synchronization before block production</string>
-    <string name="power_next_wake">Next synchronization wake-up: %1$s</string>
+    <string name="power_next_wake">Wake-up at %1$s (local time)</string>
     <string name="power_resume_help">Manual controls keep your automatic setting unchanged. After Resume, automatic suspension is held for at least 2 minutes; Suspend is available only when safe.</string>
     <string name="power_suspend">Suspend</string>
     <string name="power_resume">Resume</string>

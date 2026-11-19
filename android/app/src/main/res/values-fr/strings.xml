@@ -288,7 +288,7 @@
     <string name="power_suspended">SUSPENDU</string>
     <string name="power_waiting">En attente du prochain créneau de production de bloc</string>
     <string name="power_resuming">Reprise de la synchronisation avant production</string>
-    <string name="power_next_wake">Prochain réveil de synchronisation : %1$s</string>
+    <string name="power_next_wake">Reprise à %1$s (heure locale)</string>
     <string name="power_resume_help">Les commandes manuelles conservent le réglage automatique. Après Reprendre, la suspension automatique attend au moins 2 minutes ; Suspendre reste disponible uniquement si les conditions sont sûres.</string>
     <string name="power_suspend">Suspendre</string>
     <string name="power_resume">Reprendre</string>
