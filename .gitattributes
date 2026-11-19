@@ -4,3 +4,6 @@
 *.patch text eol=lf
 *.patch whitespace=-blank-at-eol,-blank-at-eof
 *.yml text eol=lf
+
+# Preserve verified upstream Maven metadata byte-for-byte.
+docs/licenses/parent-poms/*.pom -text

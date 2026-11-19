@@ -11,6 +11,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import time
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +22,34 @@ def parent_pom(coordinate):
         raise ValueError("Invalid parent POM coordinate")
     group, artifact, version = parts
     relative = f"{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.pom"
+    pinned_dir = ROOT / 'docs/licenses/parent-poms'
+    index = pinned_dir / 'manifest.json'
+    if index.is_file():
+        pinned = json.loads(index.read_text(encoding='utf-8')).get(coordinate)
+        if pinned:
+            if Path(pinned['file']).name != pinned['file']:
+                raise ValueError('Invalid pinned POM filename')
+            path = pinned_dir / pinned['file']
+            if path.stat().st_size > 1024 * 1024:
+                raise ValueError('Pinned parent POM too large')
+            data = path.read_bytes()
+            if hashlib.sha256(data).hexdigest() != pinned['sha256']:
+                raise ValueError(f'Pinned parent POM checksum mismatch: {coordinate}')
+            ET.fromstring(data)
+            return path
+    # Gradle may already have resolved this exact parent while reading Maven metadata.
+    gradle_home = Path(os.environ.get('GRADLE_USER_HOME', str(Path.home() / '.gradle')))
+    gradle_cache = gradle_home / 'caches/modules-2/files-2.1' / group / artifact / version
+    for path in sorted(gradle_cache.glob(f'*/{artifact}-{version}.pom')):
+        if not re.fullmatch(r'[a-f0-9]{40}', path.parent.name):
+            continue
+        if path.stat().st_size > 1024 * 1024:
+            raise ValueError('Cached parent POM too large')
+        data = path.read_bytes()
+        if hashlib.sha1(data).hexdigest() != path.parent.name:
+            raise ValueError(f'Gradle parent POM checksum mismatch: {coordinate}')
+        ET.fromstring(data)
+        return path
     cache = ROOT / 'android/app/build/reports/licenses/parent-poms' / relative
     if cache.is_file():
         return cache
