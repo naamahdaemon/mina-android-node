@@ -245,7 +245,7 @@ class KeyGenerationActivity : ComponentActivity() {
         val dialog = secure(AlertDialog.Builder(this).setTitle(R.string.wallet_use_producer)
             .setMessage(if (replacing) R.string.wallet_replace_warning else R.string.wallet_apply_warning)
             .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.wallet_use_producer) { _, _ ->
-                if (NodeState.flow.value.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)) {
+                if (NodeState.flow.value.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.SUSPENDED, RunPhase.STOPPING)) {
                     message = uiText(R.string.stop_to_edit); return@setPositiveButton
                 }
                 val file = generated?.encryptedFile ?: return@setPositiveButton

@@ -32,6 +32,7 @@ class NodeService : Service() {
     private lateinit var files: NodeFiles
     private lateinit var productionAlerts: ProductionAlerts
     private var wake: PowerManager.WakeLock? = null
+    @Volatile private var powerController: ProducerPowerController? = null
     private var producerFile: File? = null
     @Volatile private var nodePid: Int? = null
 
@@ -47,10 +48,14 @@ class NodeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == STOP) {
+        if (intent?.action == POWER_WAKE || intent?.action == RECONFIGURE) {
+            val controller = powerController
+            if (intent.action == RECONFIGURE || intent.getStringExtra("power-token") == controller?.token) controller?.wake()
+            if (child == null) stopSelf()
+        } else if (intent?.action == STOP) {
             requestStop()
         } else if (intent?.action == START && NodeState.flow.value.run !in
-            listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)) {
+            listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.SUSPENDED, RunPhase.STOPPING)) {
             val authorized = LaunchGate.take(intent.getStringExtra(LAUNCH_ID))
             NodeState.flow.update { it.copy(run = RunPhase.STARTING, network = authorized?.profile?.network?.cli ?: it.network,
                 status = ChainStatus(), message = uiText(R.string.starting_node)) }
@@ -168,6 +173,19 @@ class NodeService : Service() {
                         requireNotNull(getSystemService(NotificationManager::class.java)).notify(ID,
                             notification(statusNotification()))
                     }
+                    if (profile.producer && ProducerPowerPreferences(this@NodeService).enabled() &&
+                        NodeState.flow.value.run == RunPhase.RUNNING && result.isSuccess && measured != null) {
+                        val controller = powerController ?: ProducerPowerController(this@NodeService, files, { nodePid },
+                            { wake?.acquire(10 * 60 * 1000L) }, { wake?.let { if (it.isHeld) it.release() } }, {
+                                if (ContextCompat.checkSelfPermission(this@NodeService, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                                    requireNotNull(getSystemService(NotificationManager::class.java)).notify(ID, notification(statusNotification()))
+                                }
+                            })
+                            .also { powerController = it }
+                        runCatching { controller.consider(result.getOrThrow(), measured) }.onFailure {
+                            files.append("[app] Power saving skipped: ${it.javaClass.simpleName}")
+                        }
+                    } else powerController?.unavailable()
                     delay(if (profile.producer) 1000 else 5000)
                 }
             }
@@ -178,6 +196,7 @@ class NodeService : Service() {
                 lifecycle.withLock {
                     if (child === process) {
                         val stopped = NodeState.flow.value.run == RunPhase.STOPPING
+                        powerController?.close(); powerController = null
                         child = null
                         nodePid = null
                         producerFile?.delete(); producerFile = null
@@ -186,7 +205,7 @@ class NodeService : Service() {
                         NodeState.flow.update { it.copy(
                             run = if (stopped || code == 0) RunPhase.STOPPED else RunPhase.ERROR,
                             message = if (stopped) uiText(R.string.node_stopped) else uiText(R.string.process_ended, code),
-                            log = files.tail(), wakeLock = false) }
+                            log = files.tail(), wakeLock = false, powerWakeAtMs = null) }
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                     }
@@ -206,9 +225,10 @@ class NodeService : Service() {
     }
 
     private fun requestStop() {
+        NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = uiText(R.string.clean_stop)) }
+        powerController?.close()
         productionAlerts.cancel()
         LaunchGate.clear()
-        NodeState.flow.update { it.copy(run = RunPhase.STOPPING, message = uiText(R.string.clean_stop)) }
         scope.launch {
             lifecycle.withLock {
                 val process = child
@@ -217,6 +237,7 @@ class NodeService : Service() {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 } else {
+                    nodePid?.let { runCatching { android.system.Os.kill(-it, android.system.OsConstants.SIGCONT) } }
                     runCatching { process.outputStream.write("stop\n".toByteArray()); process.outputStream.flush() }
                     // The supervisor sends SIGINT, then enforces a 90 s bound.
                 }
@@ -230,10 +251,12 @@ class NodeService : Service() {
     }
 
     override fun onDestroy() {
+        powerController?.close()
         productionAlerts.cancel()
         LaunchGate.clear()
         // EOF tells the supervisor to stop the node even if Android destroys
         // the service without an explicit Stop action.
+        nodePid?.let { runCatching { android.system.Os.kill(-it, android.system.OsConstants.SIGCONT) } }
         runCatching { child?.outputStream?.close() }
         releaseWake()
         super.onDestroy()
@@ -254,6 +277,7 @@ class NodeService : Service() {
 
     private fun statusNotification(): String {
         val state = NodeState.flow.value
+        if (state.run == RunPhase.SUSPENDED) return getString(R.string.power_waiting)
         return getString(R.string.notification_status, phaseText(this, state.status.phase), state.status.peers)
     }
 
@@ -270,6 +294,8 @@ class NodeService : Service() {
     companion object {
         const val START = "org.minanode.android.START"
         const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
+        const val POWER_WAKE = "org.minanode.android.POWER_WAKE"
+        const val RECONFIGURE = "org.minanode.android.POWER_RECONFIGURE"
         const val STOP = "org.minanode.android.STOP"
         private const val CHANNEL = "mina-node"
         private const val ID = 1

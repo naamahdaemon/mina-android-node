@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <application android:name=".MinaApplication" android:label="Mina Node" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
         android:localeConfig="@xml/locales_config"
         android:theme="@android:style/Theme.Material.NoActionBar"

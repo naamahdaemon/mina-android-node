@@ -197,3 +197,18 @@ Gradle exports the actual `releaseRuntimeClasspath` artifact graph and Maven POM
 The generated `ANDROID-DEPENDENCIES.json` and `ANDROID-THIRD-PARTY-NOTICES.txt` are inside `assets/app-licenses/`, attached to the APK artifact and included in new GitHub releases. Rust/circuits/dashboard notices remain separate under `assets/node/` and in the native archive.
 
 The AGP 9 migration uses built-in Kotlin rather than the legacy Android Kotlin plugin. Compile SDK 37 supports the updated AndroidX/Compose libraries; target SDK 36 and minimum Android 13 remain unchanged. Native Rust inputs and the durable APK signing identity are unchanged.
+
+
+## Experimental BP power saving
+
+This option is **off by default**. With it off, synchronization, CPU wake-lock management and notification behavior stay continuous as before. It only applies to a running block producer.
+
+In **Settings > BP power saving**, enable suspension and save a separate resume lead time (60-7200 seconds, default 600). This setting is separate from the production notification lead time. If the notification lead is longer, resume early enough for that initial notification as well. Grant **Alarms & reminders** access using the settings link; without permission the node stays running. Android can still delay execution, restrict networking, or kill the app: this mode does not guarantee production.
+
+The app sends SIGSTOP to the native node process group (including workers), retaining its RAM and unlocked key, then releases its CPU wake lock. An exact idle-allowed wake-up resumes the **same process** with SIGCONT and reacquires the wake lock. No password is saved or resent. RAM is not freed. If Android kills the app or the process, a new explicit launch and password are required, just as in continuous mode. Revoking exact-alarm access can itself terminate the app on Android.
+
+The next ten announced slots are saved privately per network in `power-upcoming-slots.json` when they change. A cold launch always refreshes the schedule from the running node; a disk snapshot never authorizes a cold resume. The app does not suspend without a fresh, known future schedule and a synchronized node. It stays awake for at least two minutes after launch/resume and requires 30 seconds of stable synchronization. A production window starts at the configured resume lead and lasts until at least five minutes after its slot. Recent unfinished production attempts extend awake time. Overlapping/nearby windows and gaps of 15 minutes or less do not cause a pause. A periodic wake-up at least every 30 minutes refreshes synchronization and discovers new slots; an empty schedule keeps the node awake.
+
+The home screen and ongoing notification show **SUSPENDED / Waiting for next block production slot time**, with the next synchronization wake-up on the home screen. API and resource polling pause while the native process is stopped; displayed chain statistics are the last observed values. Stop and app-death cleanup resume the group before requesting a clean shutdown. Disable the option and save to resume immediately; this does not restart the process.
+
+Before relying on this mode, test on your device with the screen off and check `[app] Node suspended` / `[app] Node resumed` in exported logs. Confirm the same node PID, synchronization before the slot, no repeat password prompt, and successful Stop while suspended. Battery savings and timing reliability have not yet been measured on physical devices.
