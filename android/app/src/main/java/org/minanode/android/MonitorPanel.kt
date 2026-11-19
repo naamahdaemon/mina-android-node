@@ -45,8 +45,9 @@ private fun number(value: Double?, digits: Int = 1, locale: Locale) = value?.let
 
 @Composable
 fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explorer: String, running: Boolean, titleSwipe: Modifier = Modifier) {
-    var window by rememberSaveable(stateSaver = ChartWindowSaver) { mutableStateOf(ChartWindow()) }
-    var autoscale by rememberSaveable { mutableStateOf(true) }
+    val chartSettings = rememberMonitorChartSettings(network)
+    val window = chartSettings.value.window
+    val autoscale = chartSettings.value.autoscale
     var page by rememberSaveable { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<ProducedBlock?>(null) }
     val lastPage = BlockPages.count(state.blocks.size) - 1
@@ -56,7 +57,8 @@ fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explor
     val bounds = viewport.bounds
     val visible = viewport.samples
     val gestures = chartGestures { zoom, pan, anchor ->
-        window = window.transform(viewport.recording.first, viewport.recording.last, zoom, pan, anchor)
+        val current = chartSettings.value
+        chartSettings.value = current.copy(window = current.window.transform(viewport.recording.first, viewport.recording.last, zoom, pan, anchor))
     }
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
@@ -69,8 +71,8 @@ fun MonitorPanel(state: MonitorState, producer: Boolean, network: String, explor
     Text(stringResource(R.string.cpu_help), titleSwipe.fillMaxWidth(), style = MaterialTheme.typography.bodySmall)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(if (autoscale) R.string.autoscale else R.string.maximum_scale), Modifier.weight(1f))
-        Switch(autoscale, { autoscale = it })
-        TextButton(onClick = { window = ChartWindow() }) { Text(stringResource(R.string.chart_live)) }
+        Switch(autoscale, { chartSettings.value = chartSettings.value.copy(autoscale = it) })
+        TextButton(onClick = { chartSettings.value = chartSettings.value.copy(window = ChartWindow()) }) { Text(stringResource(R.string.chart_live)) }
     }
     Text(stringResource(R.string.chart_gestures), style = MaterialTheme.typography.bodySmall)
     SignalChart(stringResource(R.string.ram_chart, mib), visible, if (LocalDarkTheme.current) Color(0xFF53D9DB) else Color(0xFF00696D), gestures,
