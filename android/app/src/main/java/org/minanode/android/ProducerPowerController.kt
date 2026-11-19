@@ -64,10 +64,11 @@ class ProducerPowerController(
         val manual = manualSuspendRequested.getAndSet(false)
         suspensionAvailable(false)
         val now = System.currentTimeMillis()
+        val lead = maxOf(settings.wakeSeconds(), AppearancePreferences(context).productionAlertLeadSeconds())
         val fresh = measured.producerError == null
         if (fresh) {
             val next = measured.upcomingSlots.filter { it.timeMs > now }.distinct().sortedBy { it.timeMs }.take(10)
-            slots = (slots.filter { it.timeMs <= now && it.timeMs + ProducerPowerPolicy.AFTER_SLOT_MS >= now } + next).distinct()
+            slots = ProducerPowerPolicy.retainedSlots(slots, next, now, lead)
             if (next != savedSlots) {
                 val out = schedule.startWrite()
                 try {
@@ -85,14 +86,10 @@ class ProducerPowerController(
             return
         }
         if (syncedSince == null) syncedSince = now
-        // Recent unfinished attempts also keep the node awake, beyond a slot's fixed grace.
-        if (measured.blocks.any { it.slotTimeMs != null && it.slotTimeMs <= now &&
-                now - it.slotTimeMs < 15 * 60_000L && it.status !in setOf("Canonical", "Orphaned", "Discarded", "Missed", "Committed") }) return
-        val lead = maxOf(settings.wakeSeconds(), AppearancePreferences(context).productionAlertLeadSeconds())
         val freshSchedule = now >= lastSchedule && now - lastSchedule < 10_000
         // Manual control may end the automatic 2-minute awake hold early, but
         // never bypasses stable sync, the production window or alarm safeguards.
-        val manualWake = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = true)
+        val manualWake = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = true, blocks = measured.blocks)
         val allowed = alarms.canScheduleExactAlarms()
         suspensionAvailable(ProducerPowerPolicy.canSuspendManually(settings.enabled(),
             NodeState.flow.value.run == RunPhase.RUNNING, allowed, manualWake))
@@ -100,7 +97,7 @@ class ProducerPowerController(
             if (manualWake != null) NodeState.message(uiText(R.string.power_alarm_required))
             return
         }
-        val wakeAt = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = manual) ?: return
+        val wakeAt = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = manual, blocks = measured.blocks) ?: return
         val gate = lock.withLock {
             if (!settings.enabled() || NodeState.flow.value.run != RunPhase.RUNNING) return@withLock null
             val processId = pid()?.takeIf { it > 1 } ?: return@withLock null
