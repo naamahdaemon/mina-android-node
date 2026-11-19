@@ -41,4 +41,15 @@ class MonitorChartSettingsTest {
         assertEquals((first + 40000)..(first + 100000), restored.window.bounds(first, first + 120000))
         assertEquals(restored.window.bounds(first, first + 120000), restored.window.bounds(first, first + 180000))
     }
+    @Test fun zoomedLiveViewKeepsFollowingLatestSamplesAfterAppOrPageReturn() {
+        val first = 1790000000000L
+        val live = MonitorChartSettings(false, ChartWindow(spanMs = 60000, offsetMs = 0, endTimeMs = null))
+        val restored = MonitorChartSettings.decode(live.encode())
+        assertEquals((first + 60000)..(first + 120000), restored.window.bounds(first, first + 120000))
+        assertEquals((first + 660000)..(first + 720000), restored.window.bounds(first, first + 720000))
+        assertEquals(60000L, restored.window.spanMs)
+        assertNull(restored.window.endTimeMs)
+        assertFalse(restored.autoscale)
+    }
+
 }
