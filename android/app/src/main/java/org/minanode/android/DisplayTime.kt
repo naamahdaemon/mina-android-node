@@ -37,8 +37,11 @@ fun BlockAgeUptimeText(state: NodeUiState) {
     val forecast = state.suspensionForecast
     val now = rememberDisplayTime(suspended || (state.run == RunPhase.RUNNING && forecast.atMs != null))
     val age = if (suspended) state.status.ageAt(now) else state.status.ageSeconds
+    val checking = stringResource(R.string.suspend_line_check)
     val pause = when {
-        suspended -> stringResource(R.string.suspend_line_paused)
+        suspended -> DisplayTime.until(state.powerWakeAtMs, now)?.let {
+            if (it > 0) DisplayTime.compactDuration(it) else checking
+        } ?: "\u2014"
         state.run != RunPhase.RUNNING -> "\u2014"
         forecast.reason == SuspensionReason.COUNTDOWN -> forecast.remainingSeconds(now)?.takeIf { it > 0 }
             ?.let { DisplayTime.compactDuration(it) } ?: stringResource(R.string.suspend_line_check)
@@ -54,7 +57,8 @@ fun BlockAgeUptimeText(state: NodeUiState) {
         })
     }
     val ageText = age?.let { if (it < 60) "${it}s" else DisplayTime.compactDuration(it) } ?: "\u2014"
-    val text = stringResource(R.string.node_timing_compact, ageText, DisplayTime.compactDuration(state.status.uptimeSeconds), pause)
+    val text = stringResource(if (suspended) R.string.node_timing_wake else R.string.node_timing_compact,
+        ageText, DisplayTime.compactDuration(state.status.uptimeSeconds), pause)
     val measurer = rememberTextMeasurer()
     val base = MaterialTheme.typography.bodyLarge
     val density = LocalDensity.current
@@ -80,6 +84,8 @@ fun NextProductionSlotText(state: MonitorState, running: Boolean) {
 }
 
 object DisplayTime {
+    fun until(deadlineMs: Long?, nowMs: Long): Long? = deadlineMs?.let { ((it - nowMs).coerceAtLeast(0) + 999) / 1000 }
+
     fun compactDuration(seconds: Long): String {
         val value = seconds.coerceAtLeast(0)
         return when {

@@ -68,4 +68,11 @@ class SuspensionForecastTest {
         assertEquals("1h01", DisplayTime.compactDuration(3660))
         assertEquals("2d03h", DisplayTime.compactDuration(183600))
     }
+    @Test fun wakeCountdownUsesScheduledDeadlineAndNeverGoesNegative() {
+        assertEquals(1800L, DisplayTime.until(now + 1800000, now))
+        assertEquals(120L, DisplayTime.until(now + 1800000, now + 1680000))
+        assertEquals(0L, DisplayTime.until(now + 1800000, now + 1800001))
+        assertNull(DisplayTime.until(null, now))
+    }
+
 }

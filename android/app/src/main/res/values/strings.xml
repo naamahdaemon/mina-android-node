@@ -293,7 +293,6 @@
     <string name="power_suspend">Suspend</string>
     <string name="power_resume">Resume</string>
     <string name="node_timing_compact">Age %1$s · Up %2$s · Sleep %3$s</string>
-    <string name="suspend_line_paused">on</string>
     <string name="suspend_line_check">check</string>
     <string name="suspend_line_off">off</string>
     <string name="suspend_line_sync">sync</string>
@@ -301,4 +300,5 @@
     <string name="suspend_line_alarm">alarm</string>
     <string name="suspend_line_slot">slot</string>
     <string name="suspend_line_production">work</string>
+    <string name="node_timing_wake">Age %1$s · Up %2$s · Wake %3$s</string>
 </resources>
