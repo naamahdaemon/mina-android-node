@@ -20,7 +20,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicBoolean
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.CharBuffer
@@ -38,7 +37,6 @@ class NodeService : Service() {
     private var producerFile: File? = null
     @Volatile private var nodePid: Int? = null
     @Volatile private var suspendedMonitor: ProductionMonitor? = null
-    private val resourceSamplePending = AtomicBoolean(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -260,20 +258,24 @@ class NodeService : Service() {
         }
     }
 
-    private fun collectSuspendedResources() {
+    private suspend fun collectSuspendedResources() {
         if (NodeState.flow.value.run != RunPhase.SUSPENDED || child?.isAlive != true) return
         val monitor = suspendedMonitor ?: return
         val pid = nodePid ?: return
-        if (!resourceSamplePending.compareAndSet(false, true)) return
-        scope.launch {
-            if (NodeState.flow.value.run != RunPhase.SUSPENDED || nodePid != pid || suspendedMonitor !== monitor) return@launch
+        // This work belongs to the visible monitor's coroutine, not the service:
+        // leaving the page/backgrounding cancels queued reads and publication.
+        withContext(Dispatchers.IO) {
+            val samplingJob = currentCoroutineContext()[Job]
+            ensureActive()
             val measured = runCatching { monitor.sampleSuspendedResources(pid) {
-                NodeState.flow.value.run == RunPhase.SUSPENDED && nodePid == pid && suspendedMonitor === monitor && child?.isAlive == true
-            } }.getOrNull() ?: return@launch
+                samplingJob?.isActive == true && NodeState.flow.value.run == RunPhase.SUSPENDED &&
+                    nodePid == pid && suspendedMonitor === monitor && child?.isAlive == true
+            } }.getOrNull() ?: return@withContext
+            ensureActive()
             NodeState.flow.update {
                 if (it.run == RunPhase.SUSPENDED && nodePid == pid && suspendedMonitor === monitor) it.copy(monitor = measured) else it
             }
-        }.invokeOnCompletion { resourceSamplePending.set(false) }
+        }
     }
 
     private fun releaseWake() {
@@ -326,7 +328,7 @@ class NodeService : Service() {
 
     companion object {
         @Volatile private var resourceService: WeakReference<NodeService>? = null
-        fun sampleSuspendedResources() { resourceService?.get()?.collectSuspendedResources() }
+        suspend fun sampleSuspendedResources() { resourceService?.get()?.collectSuspendedResources() }
 
         const val START = "org.minanode.android.START"
         const val LAUNCH_ID = "org.minanode.android.LAUNCH_ID"
