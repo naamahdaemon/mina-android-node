@@ -11,7 +11,7 @@ object ProducerPowerPolicy {
     fun canSuspendManually(enabled: Boolean, running: Boolean, alarmsAllowed: Boolean, safeWakeAt: Long?): Boolean =
         enabled && running && alarmsAllowed && safeWakeAt != null
 
-    private fun discardedBeforeProof(block: ProducedBlock): Boolean = block.status == "Discarded" &&
+    internal fun discardedBeforeProof(block: ProducedBlock): Boolean = block.status == "Discarded" &&
         block.discardedMs != null && block.proofStartMs == null && block.proofEndMs == null && block.committedMs == null
 
     fun retainedSlots(previous: List<ProductionSlot>, announced: List<ProductionSlot>, now: Long, leadSeconds: Int,
@@ -22,13 +22,17 @@ object ProducerPowerPolicy {
         return (protected + next).distinct().sortedBy { it.timeMs }
     }
 
+    internal fun latestEvent(block: ProducedBlock): Long? = listOfNotNull(block.slotTimeMs, block.producedMs,
+        block.proofStartMs, block.proofEndMs, block.committedMs, block.discardedMs).maxOrNull()
+
+    internal fun unfinished(block: ProducedBlock): Boolean = block.status !in
+        setOf("Canonical", "Orphaned", "Discarded", "Missed", "Committed")
+
     fun productionProtected(now: Long, blocks: List<ProducedBlock>): Boolean = blocks.any { block ->
         if (discardedBeforeProof(block)) return@any false
-        val latest = listOfNotNull(block.slotTimeMs, block.producedMs, block.proofStartMs, block.proofEndMs,
-            block.committedMs, block.discardedMs).maxOrNull()
+        val latest = latestEvent(block)
         if (latest == null) false
-        else now <= latest + AFTER_SLOT_MS ||
-            (block.status !in setOf("Canonical", "Orphaned", "Discarded", "Missed", "Committed") && now - latest in 0..(15 * 60_000L))
+        else now <= latest + AFTER_SLOT_MS || (unfinished(block) && now - latest in 0..(15 * 60_000L))
     }
 
     fun wakeAt(now: Long, slots: List<ProductionSlot>, leadSeconds: Int,

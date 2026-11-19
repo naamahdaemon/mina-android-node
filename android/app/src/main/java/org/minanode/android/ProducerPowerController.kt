@@ -55,7 +55,14 @@ class ProducerPowerController(
         NodeState.flow.update { if (it.powerCanSuspend != available) it.copy(powerCanSuspend = available) else it }
     }
 
-    fun unavailable() { syncedSince = null; manualSuspendRequested.set(false); suspensionAvailable(false) }
+    private fun forecast(value: SuspensionForecast) {
+        NodeState.flow.update { if (it.suspensionForecast != value) it.copy(suspensionForecast = value) else it }
+    }
+
+    fun unavailable() {
+        syncedSince = null; manualSuspendRequested.set(false); suspensionAvailable(false)
+        forecast(SuspensionForecast(if (settings.enabled()) SuspensionReason.SYNC else SuspensionReason.OFF))
+    }
 
     suspend fun consider(status: ChainStatus, measured: MonitorState) {
         // This is intentionally the first check: disabled mode does no scheduling,
@@ -83,6 +90,7 @@ class ProducerPowerController(
         }
         if (status.phase.substringBefore(" · ") != "Synced" || status.ageSeconds == null || status.ageSeconds > 1800 || !fresh) {
             syncedSince = null
+            forecast(SuspensionForecast(if (!fresh) SuspensionReason.SCHEDULE else SuspensionReason.SYNC))
             return
         }
         if (syncedSince == null) syncedSince = now
@@ -91,6 +99,8 @@ class ProducerPowerController(
         // never bypasses stable sync, the production window or alarm safeguards.
         val manualWake = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = true, blocks = measured.blocks)
         val allowed = alarms.canScheduleExactAlarms()
+        forecast(SuspensionForecastPolicy.estimate(now, slots, lead, awakeSince, syncedSince,
+            freshSchedule, allowed, measured.blocks))
         suspensionAvailable(ProducerPowerPolicy.canSuspendManually(settings.enabled(),
             NodeState.flow.value.run == RunPhase.RUNNING, allowed, manualWake))
         if (!allowed) {
@@ -119,7 +129,7 @@ class ProducerPowerController(
                 files.append("[app] Node suspended (${if (manual) "manual" else "automatic"}); wake scheduled at ${java.time.Instant.ofEpochMilli(wakeAt)}")
                 NodeState.flow.update { if (it.run == RunPhase.RUNNING) it.copy(run = RunPhase.SUSPENDED, wakeLock = false,
                     message = uiText(R.string.power_waiting), powerWakeAtMs = wakeAt, powerCanSuspend = false,
-                    status = it.status.copy(peers = 0)) else it }
+                    status = it.status.copy(peers = 0), suspensionForecast = SuspensionForecast(SuspensionReason.SUSPENDED)) else it }
                 runCatching { changed() }
                 if (NodeState.flow.value.run == RunPhase.SUSPENDED) releaseCpu() else waiting.complete(Unit)
                 waiting
@@ -141,7 +151,8 @@ class ProducerPowerController(
                 awakeSince = System.currentTimeMillis(); syncedSince = null
                 files.append("[app] Node resumed; refreshing synchronization and production schedule")
                 NodeState.flow.update { if (it.run == RunPhase.SUSPENDED) it.copy(run = RunPhase.RUNNING,
-                    wakeLock = true, message = uiText(R.string.power_resuming), powerWakeAtMs = null, powerCanSuspend = false) else it }
+                    wakeLock = true, message = uiText(R.string.power_resuming), powerWakeAtMs = null, powerCanSuspend = false,
+                    suspensionForecast = SuspensionForecast(SuspensionReason.SYNC)) else it }
                 runCatching { changed() }
             } }
         }

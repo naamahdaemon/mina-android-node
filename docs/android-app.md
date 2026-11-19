@@ -219,3 +219,10 @@ Before relying on this mode, test on your device with the screen off and check `
 CPU/RAM rendering does not connect periods where no measurements were collected. Missing values and intervals longer than 15 seconds split each metric into separate segments; suspension therefore leaves a real recording gap after resume. Screen-size reduction preserves segment endpoints and extrema (including valleys), rather than connecting selected peaks across missing data. The same rendering is used for block-detail graphs.
 
 Pinching uses horizontal finger separation for the time scale and ignores pointer-count transitions. A selected range with no measurements keeps its axes and gesture surface, with a message: zoom out, pan or reset to return to recorded data. It does not invent readings or automatically move an intentionally selected historical interval. Sampling, suspension behavior and the saved zoom/scale controls are unchanged.
+
+
+### Home suspension indicator
+
+The home timing line combines compact block age, uptime and automatic-suspension status on one line. Text shrinks within a bounded readable range when needed to preserve the page margins. A countdown appears only when known time gates (minimum awake time, stable synchronization or the post-production grace) lead to a valid future suspension under the actual policy. It is recalculated as fresh node data arrives, not a promise that synchronization or production conditions cannot change.
+
+If no reliable deadline exists, the line shows a short reason instead: `sync`, `plan`, `alarm`, `slot` (including insufficient time for the minimum sleep interval), or `work`. Off/suspended states are shown explicitly. A pending decision at zero displays `check` rather than a stuck zero timer. The indicator runs only while the UI is visible, adds no API requests or wake-ups, and changes no suspension preferences or timing rules. CPU/RAM recording remains frozen while the native node is suspended.

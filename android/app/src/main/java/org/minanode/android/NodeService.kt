@@ -98,7 +98,9 @@ class NodeService : Service() {
             profile.validate(vault.exists(profile.network))
             requireUi(!profile.producer || secret != null, R.string.error_password_required)
             if (profile.producer) producerFile = vault.materialize(profile.network)
-            NodeState.flow.update { it.copy(network = profile.network.cli, monitor = MonitorState()) }
+            NodeState.flow.update { it.copy(network = profile.network.cli, monitor = MonitorState(),
+                suspensionForecast = SuspensionForecast(if (profile.producer && ProducerPowerPreferences(this).enabled())
+                    SuspensionReason.SYNC else SuspensionReason.OFF)) }
             val occupied = runCatching {
                 Socket().use { it.connect(InetSocketAddress("127.0.0.1", NodeApi.PORT), 500) }
             }.isSuccess
