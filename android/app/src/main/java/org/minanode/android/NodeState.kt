@@ -13,7 +13,10 @@ data class ChainStatus(
     val peers: Int = 0,
     val uptimeSeconds: Long = 0,
     val persistence: UiText = uiText(R.string.waiting),
+    val bestTipTimestampMs: Long? = null,
 ) {
+    fun ageAt(nowMs: Long): Long? = bestTipTimestampMs?.let { ((nowMs - it) / 1000).coerceAtLeast(0) } ?: ageSeconds
+
     companion object {
         fun parse(text: String, nowMs: Long = System.currentTimeMillis(), expectedNetwork: String = "devnet"): ChainStatus {
             val root = JSONObject(text)
@@ -32,6 +35,7 @@ data class ChainStatus(
                 },
                 uptimeSeconds = root.optLong("uptime_secs"),
                 persistence = persistenceStatus(root.optJSONObject("frontier_store")),
+                bestTipTimestampMs = timestamp.takeIf { it >= 0 },
             )
         }
 

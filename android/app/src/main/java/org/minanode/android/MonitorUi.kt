@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import java.net.URI
 import java.util.Locale
 
@@ -55,14 +54,11 @@ fun NavigationSettings(preferences: AppearancePreferences, hamburger: Boolean, o
 
 @Composable
 fun SlotIndicator(state: MonitorState, enabled: Boolean) {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(enabled, state.nextSlotTimeMs) {
-        while (enabled) { now = System.currentTimeMillis(); delay(1000) }
-    }
-    val target = state.nextSlotTimeMs
-    val remaining = target?.minus(now)
-    val fresh = enabled && target != null && remaining != null && remaining >= 0
-    val seconds = ((remaining ?: 0) / 1000).coerceAtLeast(0)
+    val now = rememberDisplayTime(enabled)
+    val next = DisplayTime.nextSlot(state, now)
+    val remaining = next?.timeMs?.minus(now)
+    val fresh = enabled && next != null
+    val seconds = next?.let { DisplayTime.remainingSeconds(it, now) } ?: 0
     val color = when {
         !fresh -> MaterialTheme.colorScheme.onSurfaceVariant
         seconds <= 60 -> MaterialTheme.colorScheme.error
@@ -70,7 +66,7 @@ fun SlotIndicator(state: MonitorState, enabled: Boolean) {
         else -> if (LocalDarkTheme.current) Color(0xFF53D9BC) else Color(0xFF006A55)
     }
     Column(Modifier.widthIn(max = 185.dp).padding(start = 8.dp), horizontalAlignment = Alignment.End) {
-        Text(if (fresh) stringResource(R.string.header_slot, state.nextSlot ?: "—") else stringResource(R.string.header_no_slot),
+        Text(if (fresh) stringResource(R.string.header_slot, next?.slot ?: "—") else stringResource(R.string.header_no_slot),
             style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
         if (fresh) {
             Text(String.format(Locale.ROOT, "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60),
