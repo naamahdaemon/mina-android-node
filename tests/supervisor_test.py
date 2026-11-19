@@ -50,3 +50,38 @@ with tempfile.TemporaryDirectory() as directory:
         if process.poll() is None:
             process.kill(); process.wait()
 print("Supervisor credential framing tests passed")
+
+# Same-process pause/resume keeps credentials in the child. EOF/Stop must also
+# resume a stopped group before SIGINT so the existing clean shutdown still works.
+import os
+import signal
+import time
+with tempfile.TemporaryDirectory() as directory:
+    child = Path(directory) / "paused.py"
+    child.write_text("import os,signal,time,sys\nassert sys.stdin.buffer.read(4)==bytes(4)\nsignal.signal(signal.SIGINT, lambda *_: sys.exit(0))\nprint(os.getpid(),flush=True)\nwhile True: time.sleep(0.05)\n")
+    for eof in (False, True):
+        process = subprocess.Popen([supervisor, sys.executable, str(child)], stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            process.stdin.write(bytes(4)); process.stdin.flush()
+            assert select.select([process.stdout], [], [], 5)[0]
+            pid = int(process.stdout.readline())
+            os.killpg(pid, signal.SIGSTOP)
+            deadline = time.monotonic() + 3
+            while not Path(f"/proc/{pid}/status").read_text().split("State:",1)[1].lstrip().startswith("T"):
+                assert time.monotonic() < deadline
+                time.sleep(0.01)
+            assert process.poll() is None
+            os.killpg(pid, signal.SIGCONT)
+            time.sleep(0.05)
+            assert Path(f"/proc/{pid}").exists(), "Resume must keep the same process"
+            os.killpg(pid, signal.SIGSTOP)
+            if not eof:
+                process.stdin.write(b"stop\n"); process.stdin.flush()
+            process.stdin.close()
+            assert process.wait(timeout=10) == 0, process.stderr.read()
+            assert not Path(f"/proc/{pid}").exists()
+        finally:
+            if process.poll() is None:
+                process.kill(); process.wait()
+print("Supervisor pause/resume and suspended Stop/EOF tests passed")

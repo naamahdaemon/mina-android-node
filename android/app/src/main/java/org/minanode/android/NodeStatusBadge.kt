@@ -39,6 +39,7 @@ fun NodeStatusBadge(run: RunPhase, phase: String) {
     val context = LocalContext.current
     val color = when {
         run == RunPhase.ERROR -> MaterialTheme.colorScheme.error
+        run == RunPhase.SUSPENDED -> MaterialTheme.colorScheme.primary
         run == RunPhase.STOPPED -> MaterialTheme.colorScheme.onSurfaceVariant
         run == RunPhase.RUNNING && phase.split(" · ").firstOrNull() == "Synced" ->
             if (LocalDarkTheme.current) Color(0xFF53D9BC) else Color(0xFF006A50)
@@ -48,6 +49,7 @@ fun NodeStatusBadge(run: RunPhase, phase: String) {
         RunPhase.STOPPED -> stringResource(R.string.stopped)
         RunPhase.STARTING -> stringResource(R.string.starting)
         RunPhase.RUNNING -> phaseText(context, phase)
+        RunPhase.SUSPENDED -> stringResource(R.string.power_suspended)
         RunPhase.STOPPING -> stringResource(R.string.stopping)
         RunPhase.ERROR -> stringResource(R.string.attention_required)
     }

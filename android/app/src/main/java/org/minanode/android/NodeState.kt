@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONObject
 
-enum class RunPhase { STOPPED, STARTING, RUNNING, STOPPING, ERROR }
+enum class RunPhase { STOPPED, STARTING, RUNNING, SUSPENDED, STOPPING, ERROR }
 
 data class ChainStatus(
     val phase: String = "",
@@ -63,6 +63,7 @@ data class NodeUiState(
     val vpn: Boolean = false,
     val wakeLock: Boolean = false,
     val monitor: MonitorState = MonitorState(),
+    val powerWakeAtMs: Long? = null,
 )
 
 object NodeState {

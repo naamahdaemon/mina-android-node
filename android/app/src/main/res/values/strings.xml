@@ -275,4 +275,18 @@
     <string name="production_alert_reminder_help">Leave blank for no reminders. Otherwise enter a positive whole number strictly below the initial alert lead time. Tap Save to apply both settings.</string>
     <string name="production_alert_reminder_off">Applied reminders: disabled</string>
     <string name="production_alert_reminder_current">Applied reminders: every %1$d seconds</string>
+    <string name="power_title">BP power saving (experimental)</string>
+    <string name="power_enable">Suspend between production windows</string>
+    <string name="power_help">Off by default. Only for a running block producer. Pause the same native process: CPU work stops, RAM stays allocated, and resuming needs no password. Android killing the process still requires a new password. No production guarantee.</string>
+    <string name="power_wake_lead">Resume before the slot (seconds)</string>
+    <string name="power_wake_range">60 to 7200 seconds; default 600. Independent of notification timing. Allow enough time to reconnect and synchronize.</string>
+    <string name="power_applied_on">Applied: power saving enabled</string>
+    <string name="power_applied_off">Applied: continuous synchronization (power saving off)</string>
+    <string name="power_alarm_access">Allow precise wake-ups in Android settings</string>
+    <string name="power_alarm_help">Alarms &amp; reminders access is required to suspend. Without it the node keeps running. Re-check synchronization at least every 30 minutes; stay awake when no future slot is known or windows are close. Keep running for at least 5 minutes after each known slot. Disabling and saving resumes immediately.</string>
+    <string name="power_alarm_required">Power saving: allow Alarms &amp; reminders in Android settings; node remains running.</string>
+    <string name="power_suspended">SUSPENDED</string>
+    <string name="power_waiting">Waiting for next block production slot time</string>
+    <string name="power_resuming">Resuming synchronization before block production</string>
+    <string name="power_next_wake">Next synchronization wake-up: %1$s</string>
 </resources>

@@ -275,4 +275,18 @@
     <string name="production_alert_reminder_help">Laissez vide pour désactiver les rappels. Sinon, indiquez un entier positif strictement inférieur au délai de l’alerte initiale. Touchez Enregistrer pour appliquer les deux réglages.</string>
     <string name="production_alert_reminder_off">Rappels appliqués : désactivés</string>
     <string name="production_alert_reminder_current">Rappels appliqués : toutes les %1$d secondes</string>
+    <string name="power_title">Économie BP (expérimental)</string>
+    <string name="power_enable">Suspendre entre les créneaux de production</string>
+    <string name="power_help">Désactivé par défaut. Réservé au nœud producteur en cours. Le même processus natif est mis en pause : le CPU cesse de travailler, la RAM reste occupée et la reprise ne demande pas de mot de passe. Si Android tue le processus, le mot de passe reste nécessaire. Production non garantie.</string>
+    <string name="power_wake_lead">Reprendre avant le slot (secondes)</string>
+    <string name="power_wake_range">De 60 à 7200 secondes ; défaut 600. Indépendant des notifications. Prévoyez le temps de reconnexion et de synchronisation.</string>
+    <string name="power_applied_on">Appliqué : économie activée</string>
+    <string name="power_applied_off">Appliqué : synchronisation continue (économie désactivée)</string>
+    <string name="power_alarm_access">Autoriser les réveils précis dans Android</string>
+    <string name="power_alarm_help">L’accès Alarmes et rappels est requis pour suspendre. Sans celui-ci, le nœud reste actif. Actualisation au moins toutes les 30 minutes ; reste actif sans futur slot connu ou entre créneaux proches. Reste actif au moins 5 minutes après chaque slot connu. Désactiver puis enregistrer reprend immédiatement.</string>
+    <string name="power_alarm_required">Économie : autorisez Alarmes et rappels dans Android ; le nœud reste actif.</string>
+    <string name="power_suspended">SUSPENDU</string>
+    <string name="power_waiting">En attente du prochain créneau de production de bloc</string>
+    <string name="power_resuming">Reprise de la synchronisation avant production</string>
+    <string name="power_next_wake">Prochain réveil de synchronisation : %1$s</string>
 </resources>

@@ -87,6 +87,8 @@ int main(int argc, char **argv) {
             }
             if (stopping) {
                 fprintf(stderr, "[app] Arrêt propre du nœud (SIGINT)\n");
+                // A paused node must run to handle SIGINT, including on app-death EOF.
+                kill(-child, SIGCONT);
                 kill(-child, SIGINT);
                 deadline = now_ms() + 90000;
             }

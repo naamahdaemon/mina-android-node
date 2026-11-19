@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(owner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME && !profileDirty && !preparingStart &&
-                            NodeState.flow.value.run !in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)) {
+                            NodeState.flow.value.run !in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.SUSPENDED, RunPhase.STOPPING)) {
                             profile = store.load()
                             hasKey = vault.exists(profile.network)
                         }
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
                         NodeState.message(result.fold({ uiText(R.string.log_exported) }, { uiText(R.string.export_failed, it.userText()) }))
                     }
                 }
-                val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.STOPPING)
+                val active = state.run in listOf(RunPhase.STARTING, RunPhase.RUNNING, RunPhase.SUSPENDED, RunPhase.STOPPING)
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(appContentInsets())) {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -203,6 +203,7 @@ class MainActivity : ComponentActivity() {
                             onAlertTiming = { lead, reminder ->
                                 appearance.setProductionAlertTiming(lead, reminder)
                                 alertLeadSeconds = lead; alertReminderSeconds = reminder })
+                        if (current == NodePage.SETTINGS) ProducerPowerSettings(!preparingStart)
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },
                             onImport = { importKey.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -224,6 +225,11 @@ class MainActivity : ComponentActivity() {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 NodeStatusBadge(state.run, state.status.phase)
                                 Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
+                                state.powerWakeAtMs?.let { wakeAt ->
+                                    Text(stringResource(R.string.power_next_wake, java.time.Instant.ofEpochMilli(wakeAt)
+                                        .atZone(java.time.ZoneId.systemDefault()).toLocalTime().withNano(0).toString()),
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Button(enabled = !active && !preparingStart, onClick = {
