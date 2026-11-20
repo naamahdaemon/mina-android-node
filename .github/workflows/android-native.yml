@@ -109,6 +109,17 @@ jobs:
             dist/ANDROID-DEPENDENCIES.json
             dist/ANDROID-THIRD-PARTY-NOTICES.txt
           if-no-files-found: error
+      - name: Upload signed Google Play app bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mina-android-play-bundle
+          path: |
+            dist/mina-android-release.aab
+            dist/AAB-SHA256SUMS
+            dist/AAB-BUILD-INFO.txt
+            dist/ANDROID-DEPENDENCIES.json
+            dist/ANDROID-THIRD-PARTY-NOTICES.txt
+          if-no-files-found: error
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

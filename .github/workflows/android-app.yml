@@ -13,6 +13,8 @@ on:
       - android/**
       - scripts/android-licenses.py
       - scripts/verify-apk-release.py
+      - scripts/verify-app-bundle.py
+      - tests/test_app_bundle.py
       - tests/test_distribution.py
       - scripts/build-apk.sh
       - scripts/apk-version.py
@@ -132,6 +134,17 @@ jobs:
             dist/mina-android-release.apk
             dist/APK-SHA256SUMS
             dist/APK-BUILD-INFO.txt
+            dist/ANDROID-DEPENDENCIES.json
+            dist/ANDROID-THIRD-PARTY-NOTICES.txt
+          if-no-files-found: error
+      - name: Upload signed Google Play app bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mina-android-play-bundle
+          path: |
+            dist/mina-android-release.aab
+            dist/AAB-SHA256SUMS
+            dist/AAB-BUILD-INFO.txt
             dist/ANDROID-DEPENDENCIES.json
             dist/ANDROID-THIRD-PARTY-NOTICES.txt
           if-no-files-found: error

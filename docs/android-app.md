@@ -251,3 +251,11 @@ All policy timing settings are persisted by the app and shared by automatic susp
 | Maximum best-tip age | 1800 s | 60–86400 s | Maximum tip age while considering the node synchronized enough to suspend. |
 
 The wake-up line identifies **Sync** or **Block**. The earlier deadline wins; ties are labeled Block. These settings control the app policy, not Rust networking timeouts or Android alarm delivery guarantees.
+
+### Google Play bundle
+
+The Android application workflow builds both the existing release APK and a signed release Android App Bundle, using the same source, version code/name and pinned signing identity. It reuses the compatible native artifact; adding a bundle does not rebuild Rust. The native workflow also publishes a bundle after its normal build.
+
+Download the `mina-android-play-bundle` artifact from a successful main run. Verify `AAB-SHA256SUMS`, then upload `mina-android-release.aab` in Play Console. `AAB-BUILD-INFO.txt` records provenance and signing identity. APK release packaging remains unchanged; the bundle is distributed as a separate Actions artifact.
+
+CI verifies the bundle signature and certificate, compares every packaged native library and license against the APK, and rejects ELF LOAD segments below 16 KiB alignment. This checks binary alignment, not a full runtime test on a 16 KiB device or Google Play policy acceptance. Play App Signing must use the intended app-signing certificate for compatibility with GitHub APKs. No Play upload or rollout is automatic.
