@@ -68,6 +68,7 @@ data class NodeUiState(
     val wakeLock: Boolean = false,
     val monitor: MonitorState = MonitorState(),
     val powerWakeAtMs: Long? = null,
+    val powerWakeReason: PowerWakeReason = PowerWakeReason.SYNC,
     val powerCanSuspend: Boolean = false,
     val suspensionForecast: SuspensionForecast = SuspensionForecast(),
 )

@@ -227,7 +227,8 @@ class MainActivity : ComponentActivity() {
                                 Text(state.message.resolve(context), style = MaterialTheme.typography.bodyMedium)
                                 state.powerWakeAtMs?.let { wakeAt ->
                                     Text(stringResource(R.string.power_next_wake, java.time.Instant.ofEpochMilli(wakeAt)
-                                        .atZone(java.time.ZoneId.systemDefault()).toLocalTime().withNano(0).toString()),
+                                        .atZone(java.time.ZoneId.systemDefault()).toLocalTime().withNano(0).toString(),
+                                        stringResource(if (state.powerWakeReason == PowerWakeReason.BLOCK) R.string.power_reason_block else R.string.power_reason_sync)),
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 if (state.run == RunPhase.STARTING || state.run == RunPhase.STOPPING) LinearProgressIndicator(Modifier.fillMaxWidth())
