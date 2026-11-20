@@ -279,7 +279,7 @@
     <string name="power_enable">Suspend between production windows</string>
     <string name="power_help">Off by default. Only for a running block producer. Pause the same native process: CPU work stops, RAM stays allocated, and resuming needs no password. Android killing the process still requires a new password. No production guarantee.</string>
     <string name="power_wake_lead">Resume before the slot (seconds)</string>
-    <string name="power_wake_range">60 to 7200 seconds; default 600. Independent of notification timing. Allow enough time to reconnect and synchronize.</string>
+    <string name="power_wake_range">60 to 7200 seconds; default 600. The larger of this lead and the initial notification lead is used. Allow enough time to reconnect and synchronize.</string>
     <string name="power_applied_on">Applied: power saving enabled</string>
     <string name="power_applied_off">Applied: continuous synchronization (power saving off)</string>
     <string name="power_alarm_access">Allow precise wake-ups in Android settings</string>
@@ -288,8 +288,8 @@
     <string name="power_suspended">SUSPENDED</string>
     <string name="power_waiting">Waiting for next block production slot time</string>
     <string name="power_resuming">Resuming synchronization before block production</string>
-    <string name="power_next_wake">Wake-up at %1$s (local time)</string>
-    <string name="power_resume_help">Manual controls keep your automatic setting unchanged. After Resume, automatic suspension is held for at least 2 minutes; Suspend is available only when safe.</string>
+    <string name="power_next_wake">Wake-up at %1$s (local time) · %2$s</string>
+    <string name="power_resume_help">Manual controls keep your automatic setting unchanged. After Resume, the configured minimum awake time applies; Suspend is available only when safe.</string>
     <string name="power_suspend">Suspend</string>
     <string name="power_resume">Resume</string>
     <string name="suspend_line_check">check</string>
@@ -303,4 +303,18 @@
     <string name="timing_uptime">Up</string>
     <string name="timing_sleep">Sleep</string>
     <string name="timing_wake">Wake</string>
+    <string name="power_sync_interval">Synchronization wake-up interval (minutes)</string>
+    <string name="power_sync_range">1 to 120 minutes; default 10. Measured from suspension. The earlier of Sync or Block wakes the node.</string>
+    <string name="power_reason_sync">Sync</string>
+    <string name="power_reason_block">Block</string>
+    <string name="power_timing_guards">Suspension timing guards (seconds)</string>
+    <string name="power_timing_awake">Minimum awake time after start / resume</string>
+    <string name="power_timing_stable">Stable synchronization before suspension</string>
+    <string name="power_timing_grace">Hold after a slot / production event</string>
+    <string name="power_timing_gap">Minimum gap before a production wake-up</string>
+    <string name="power_timing_unfinished">Protection for unfinished production</string>
+    <string name="power_timing_schedule">Maximum schedule age</string>
+    <string name="power_timing_tip">Maximum best-tip age</string>
+    <string name="power_timing_range">%1$d to %2$d seconds; default %3$d.</string>
+    <string name="power_timing_help">Awake time applies to automatic suspension; manual Suspend still requires stable sync and production guards. The production hold starts again at proof completion, commit or discard (except a confirmed discard before proof). Unfinished work is protected from its latest event. The minimum gap concerns Block wake-ups, independently of Sync. Schedule and best-tip age limits prevent suspension on stale data. Shortening guards can leave less time to synchronize or finish production.</string>
 </resources>

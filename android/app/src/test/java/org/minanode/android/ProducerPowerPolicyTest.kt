@@ -7,13 +7,13 @@ class ProducerPowerPolicyTest {
     private val now = 1790000000000L
     private fun wake(slots: List<ProductionSlot>, lead: Int = 600, awake: Long = now - 180000,
         synced: Long? = now - 60000, fresh: Boolean = true) =
-        ProducerPowerPolicy.wakeAt(now, slots, lead, awake, synced, fresh)
+        ProducerPowerPolicy.wakeAt(now, slots, lead, awake, synced, fresh, syncSeconds = 1800)
 
     @Test fun sleepsUntilIndependentProductionLead() {
         assertEquals(now + 1200000, wake(listOf(ProductionSlot(1, now + 1800000))))
     }
     @Test fun periodicallyRefreshesDistantSchedules() {
-        assertEquals(now + ProducerPowerPolicy.REFRESH_MS, wake(listOf(ProductionSlot(1, now + 7200000))))
+        assertEquals(now + 1800000L, wake(listOf(ProductionSlot(1, now + 7200000))))
     }
     @Test fun unknownOrStaleScheduleNeverSleeps() {
         assertNull(wake(emptyList()))
@@ -53,7 +53,7 @@ class ProducerPowerPolicyTest {
         val slots = listOf(ProductionSlot(1, now + 1800000))
         assertNull(wake(slots, awake = now - 60000))
         assertEquals(now + 1200000, ProducerPowerPolicy.wakeAt(now, slots, 600,
-            now - 60000, now - 60000, true, manual = true))
+            now - 60000, now - 60000, true, manual = true, syncSeconds = 1800))
     }
     @Test fun manualSuspendCannotBypassProductionWindowsOrStaleUnknownSchedules() {
         for (offset in listOf(-300000L, -1L, 0L, 600000L, 1500000L)) {
@@ -149,6 +149,41 @@ class ProducerPowerPolicyTest {
     @Test fun incompleteDiscardMetadataCannotBypassGrace() {
         val unknown = finished("Discarded", committed = null, proofEnd = null).copy(proofStartMs = null)
         assertTrue(ProducerPowerPolicy.productionProtected(now, listOf(unknown)))
+    }
+
+    @Test fun defaultSyncWakeIsTenMinutesEvenBelowProductionGapGuard() {
+        val slots = listOf(ProductionSlot(1, now + 7200000))
+        assertEquals(600, ProducerPowerPolicy.DEFAULT_SYNC_SECONDS)
+        assertEquals(now + 600000, ProducerPowerPolicy.wakeAt(now, slots, 300,
+            now - 180000, now - 60000, true))
+        assertEquals(PowerWakeReason.SYNC, ProducerPowerPolicy.wakeReason(now, slots, 300, 600))
+    }
+    @Test fun syncIntervalCanBeChangedWithoutChangingProductionLead() {
+        val slots = listOf(ProductionSlot(1, now + 7200000))
+        for (seconds in listOf(60, 600, 1800)) {
+            assertEquals(now + seconds * 1000L, ProducerPowerPolicy.wakeAt(now, slots, 300,
+                now - 180000, now - 60000, true, syncSeconds = seconds))
+        }
+    }
+    @Test fun productionWakeWinsOverLongSyncInterval() {
+        val slots = listOf(ProductionSlot(1, now + 1800000))
+        assertEquals(now + 1500000, ProducerPowerPolicy.wakeAt(now, slots, 300,
+            now - 180000, now - 60000, true, syncSeconds = 3600))
+        assertEquals(PowerWakeReason.BLOCK, ProducerPowerPolicy.wakeReason(now, slots, 300, 3600))
+    }
+    @Test fun tiedWakeDeadlinesIdentifyProduction() {
+        val slots = listOf(ProductionSlot(1, now + 1800000))
+        assertEquals(PowerWakeReason.BLOCK, ProducerPowerPolicy.wakeReason(now, slots, 300, 1500))
+    }
+    @Test fun shortSyncIntervalDoesNotBypassProductionGapGuard() {
+        assertNull(ProducerPowerPolicy.wakeAt(now, listOf(ProductionSlot(1, now + 1200000)), 300,
+            now - 180000, now - 60000, true, syncSeconds = 60))
+    }
+    @Test fun invalidSyncIntervalIsRejected() {
+        for (seconds in listOf(0, 59, 7201)) assertTrue(runCatching {
+            ProducerPowerPolicy.wakeAt(now, listOf(ProductionSlot(1, now + 7200000)), 300,
+                now - 180000, now - 60000, true, syncSeconds = seconds)
+        }.isFailure)
     }
 
 }

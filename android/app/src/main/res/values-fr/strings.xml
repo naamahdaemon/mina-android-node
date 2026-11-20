@@ -279,7 +279,7 @@
     <string name="power_enable">Suspendre entre les créneaux de production</string>
     <string name="power_help">Désactivé par défaut. Réservé au nœud producteur en cours. Le même processus natif est mis en pause : le CPU cesse de travailler, la RAM reste occupée et la reprise ne demande pas de mot de passe. Si Android tue le processus, le mot de passe reste nécessaire. Production non garantie.</string>
     <string name="power_wake_lead">Reprendre avant le slot (secondes)</string>
-    <string name="power_wake_range">De 60 à 7200 secondes ; défaut 600. Indépendant des notifications. Prévoyez le temps de reconnexion et de synchronisation.</string>
+    <string name="power_wake_range">De 60 à 7200 secondes ; défaut 600. Le plus grand délai entre celui-ci et la notification initiale est utilisé. Prévoyez le temps de reconnexion et de synchronisation.</string>
     <string name="power_applied_on">Appliqué : économie activée</string>
     <string name="power_applied_off">Appliqué : synchronisation continue (économie désactivée)</string>
     <string name="power_alarm_access">Autoriser les réveils précis dans Android</string>
@@ -288,8 +288,8 @@
     <string name="power_suspended">SUSPENDU</string>
     <string name="power_waiting">En attente du prochain créneau de production de bloc</string>
     <string name="power_resuming">Reprise de la synchronisation avant production</string>
-    <string name="power_next_wake">Reprise à %1$s (heure locale)</string>
-    <string name="power_resume_help">Les commandes manuelles conservent le réglage automatique. Après Reprendre, la suspension automatique attend au moins 2 minutes ; Suspendre reste disponible uniquement si les conditions sont sûres.</string>
+    <string name="power_next_wake">Reprise à %1$s (heure locale) · %2$s</string>
+    <string name="power_resume_help">Les commandes manuelles conservent le réglage automatique. Après Reprendre, la durée minimale d’éveil configurée s’applique ; Suspendre reste disponible uniquement si les conditions sont sûres.</string>
     <string name="power_suspend">Suspendre</string>
     <string name="power_resume">Reprendre</string>
     <string name="suspend_line_check">vérif.</string>
@@ -303,4 +303,18 @@
     <string name="timing_uptime">Actif</string>
     <string name="timing_sleep">Pause</string>
     <string name="timing_wake">Reprise</string>
+    <string name="power_sync_interval">Intervalle de réveil Sync (minutes)</string>
+    <string name="power_sync_range">De 1 à 120 minutes ; défaut 10. Depuis la suspension. Le premier réveil Sync ou Block reprend le nœud.</string>
+    <string name="power_reason_sync">Sync</string>
+    <string name="power_reason_block">Block</string>
+    <string name="power_timing_guards">Délais de protection (secondes)</string>
+    <string name="power_timing_awake">Éveil minimal après démarrage / reprise</string>
+    <string name="power_timing_stable">Synchronisation stable avant suspension</string>
+    <string name="power_timing_grace">Maintien après un slot / une production</string>
+    <string name="power_timing_gap">Intervalle minimal avant un réveil Block</string>
+    <string name="power_timing_unfinished">Protection des productions en cours</string>
+    <string name="power_timing_schedule">Âge maximal du planning</string>
+    <string name="power_timing_tip">Âge maximal du dernier bloc</string>
+    <string name="power_timing_range">De %1$d à %2$d secondes ; défaut %3$d.</string>
+    <string name="power_timing_help">La durée minimale d’éveil concerne la suspension automatique ; Suspendre exige toujours une synchronisation stable et les protections de production. Le maintien repart à la fin de preuve, au commit ou à l’abandon (sauf abandon confirmé avant preuve). Une production en cours est protégée depuis son dernier événement. L’intervalle minimal concerne les réveils Block, indépendamment de Sync. Les limites d’âge du planning et du bloc empêchent la suspension avec des données anciennes. Réduire les protections peut laisser moins de temps pour se synchroniser ou terminer la production.</string>
 </resources>

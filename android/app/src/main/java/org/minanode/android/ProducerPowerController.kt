@@ -72,10 +72,12 @@ class ProducerPowerController(
         suspensionAvailable(false)
         val now = System.currentTimeMillis()
         val lead = maxOf(settings.wakeSeconds(), AppearancePreferences(context).productionAlertLeadSeconds())
+        val syncSeconds = settings.syncSeconds()
+        val timings = settings.timings()
         val fresh = measured.producerError == null
         if (fresh) {
             val next = measured.upcomingSlots.filter { it.timeMs > now }.distinct().sortedBy { it.timeMs }.take(10)
-            slots = ProducerPowerPolicy.retainedSlots(slots, next, now, lead, measured.blocks)
+            slots = ProducerPowerPolicy.retainedSlots(slots, next, now, lead, measured.blocks, timings)
             if (next != savedSlots) {
                 val out = schedule.startWrite()
                 try {
@@ -88,26 +90,27 @@ class ProducerPowerController(
             }
             lastSchedule = now
         }
-        if (status.phase.substringBefore(" · ") != "Synced" || status.ageSeconds == null || status.ageSeconds > 1800 || !fresh) {
+        if (status.phase.substringBefore(" · ") != "Synced" || !timings.tipFresh(status.ageSeconds) || !fresh) {
             syncedSince = null
             forecast(SuspensionForecast(if (!fresh) SuspensionReason.SCHEDULE else SuspensionReason.SYNC))
             return
         }
         if (syncedSince == null) syncedSince = now
-        val freshSchedule = now >= lastSchedule && now - lastSchedule < 10_000
-        // Manual control may end the automatic 2-minute awake hold early, but
+        val freshSchedule = timings.scheduleFresh(now, lastSchedule)
+        // Manual control may end the configured automatic awake hold early, but
         // never bypasses stable sync, the production window or alarm safeguards.
-        val manualWake = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = true, blocks = measured.blocks)
+        val manualWake = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = true, blocks = measured.blocks, syncSeconds = syncSeconds, timings = timings)
         val allowed = alarms.canScheduleExactAlarms()
         forecast(SuspensionForecastPolicy.estimate(now, slots, lead, awakeSince, syncedSince,
-            freshSchedule, allowed, measured.blocks))
+            freshSchedule, allowed, measured.blocks, syncSeconds, timings))
         suspensionAvailable(ProducerPowerPolicy.canSuspendManually(settings.enabled(),
             NodeState.flow.value.run == RunPhase.RUNNING, allowed, manualWake))
         if (!allowed) {
             if (manualWake != null) NodeState.message(uiText(R.string.power_alarm_required))
             return
         }
-        val wakeAt = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = manual, blocks = measured.blocks) ?: return
+        val wakeAt = ProducerPowerPolicy.wakeAt(now, slots, lead, awakeSince, syncedSince, freshSchedule, manual = manual, blocks = measured.blocks, syncSeconds = syncSeconds, timings = timings) ?: return
+        val wakeReason = ProducerPowerPolicy.wakeReason(now, slots, lead, syncSeconds)
         val gate = lock.withLock {
             if (!settings.enabled() || NodeState.flow.value.run != RunPhase.RUNNING) return@withLock null
             val processId = pid()?.takeIf { it > 1 } ?: return@withLock null
@@ -126,9 +129,9 @@ class ProducerPowerController(
                     }
                 }
                 check(confirmed)
-                files.append("[app] Node suspended (${if (manual) "manual" else "automatic"}); wake scheduled at ${java.time.Instant.ofEpochMilli(wakeAt)}")
+                files.append("[app] Node suspended (${if (manual) "manual" else "automatic"}); wake scheduled at ${java.time.Instant.ofEpochMilli(wakeAt)} ($wakeReason)")
                 NodeState.flow.update { if (it.run == RunPhase.RUNNING) it.copy(run = RunPhase.SUSPENDED, wakeLock = false,
-                    message = uiText(R.string.power_waiting), powerWakeAtMs = wakeAt, powerCanSuspend = false,
+                    message = uiText(R.string.power_waiting), powerWakeAtMs = wakeAt, powerWakeReason = wakeReason, powerCanSuspend = false,
                     status = it.status.copy(peers = 0), suspensionForecast = SuspensionForecast(SuspensionReason.SUSPENDED)) else it }
                 runCatching { changed() }
                 if (NodeState.flow.value.run == RunPhase.SUSPENDED) releaseCpu() else waiting.complete(Unit)

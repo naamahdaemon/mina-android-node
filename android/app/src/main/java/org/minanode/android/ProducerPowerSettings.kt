@@ -20,9 +20,16 @@ class ProducerPowerPreferences(context: Context) {
     private val prefs = context.getSharedPreferences("producer-power", Context.MODE_PRIVATE)
     fun enabled() = prefs.getBoolean("enabled", false)
     fun wakeSeconds() = prefs.getInt("wake-seconds", 600).coerceIn(60, 7200)
-    fun save(enabled: Boolean, seconds: Int) {
+    fun syncSeconds() = prefs.getInt("sync-seconds", ProducerPowerPolicy.DEFAULT_SYNC_SECONDS).coerceIn(60, 7200)
+    fun timings() = PowerTimings(PowerTiming.entries.associateWith {
+        prefs.getInt(it.key, it.defaultSeconds).coerceIn(it.range)
+    })
+    fun save(enabled: Boolean, seconds: Int, syncSeconds: Int, timings: PowerTimings) {
         require(seconds in 60..7200)
-        prefs.edit().putBoolean("enabled", enabled).putInt("wake-seconds", seconds).apply()
+        require(syncSeconds in 60..7200)
+        val editor = prefs.edit().putBoolean("enabled", enabled).putInt("wake-seconds", seconds).putInt("sync-seconds", syncSeconds)
+        PowerTiming.entries.forEach { editor.putInt(it.key, timings[it]) }
+        editor.apply()
     }
 }
 
@@ -34,6 +41,14 @@ fun ProducerPowerSettings(enabled: Boolean) {
     var seconds by rememberSaveable { mutableStateOf(settings.wakeSeconds().toString()) }
     var savedEnabled by remember { mutableStateOf(settings.enabled()) }
     var savedSeconds by remember { mutableIntStateOf(settings.wakeSeconds()) }
+    var syncMinutes by rememberSaveable { mutableStateOf((settings.syncSeconds() / 60).toString()) }
+    var savedSyncSeconds by remember { mutableIntStateOf(settings.syncSeconds()) }
+    val parsedSync = syncMinutes.toIntOrNull()?.takeIf { it in 1..120 }?.times(60)
+    var timingTexts by rememberSaveable { mutableStateOf(PowerTiming.entries.map { settings.timings()[it].toString() }) }
+    var savedTimings by remember { mutableStateOf(settings.timings()) }
+    val parsedTimings = timingTexts.mapIndexed { index, text -> text.toIntOrNull()?.takeIf { it in PowerTiming.entries[index].range } }
+    val validTimings = parsedTimings.all { it != null }
+    val timings = if (validTimings) PowerTimings(PowerTiming.entries.mapIndexed { index, key -> key to requireNotNull(parsedTimings[index]) }.toMap()) else null
     val parsed = seconds.toIntOrNull()?.takeIf { it in 60..7200 }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -48,11 +63,39 @@ fun ProducerPowerSettings(enabled: Boolean) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 isError = selected && parsed == null,
                 supportingText = { Text(stringResource(R.string.power_wake_range)) })
-            Button(enabled = enabled && (!selected || parsed != null) &&
-                (selected != savedEnabled || (selected && parsed != savedSeconds)), onClick = {
+            OutlinedTextField(syncMinutes, { syncMinutes = it }, Modifier.fillMaxWidth(), enabled = enabled && selected,
+                label = { Text(stringResource(R.string.power_sync_interval)) }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = selected && parsedSync == null,
+                supportingText = { Text(stringResource(R.string.power_sync_range)) })
+            Text(stringResource(R.string.power_timing_guards), style = MaterialTheme.typography.titleMedium)
+            PowerTiming.entries.forEachIndexed { index, key ->
+                val label = when (key) {
+                    PowerTiming.AWAKE -> R.string.power_timing_awake
+                    PowerTiming.STABLE -> R.string.power_timing_stable
+                    PowerTiming.GRACE -> R.string.power_timing_grace
+                    PowerTiming.GAP -> R.string.power_timing_gap
+                    PowerTiming.UNFINISHED -> R.string.power_timing_unfinished
+                    PowerTiming.SCHEDULE -> R.string.power_timing_schedule
+                    PowerTiming.TIP -> R.string.power_timing_tip
+                }
+                OutlinedTextField(timingTexts[index], { value ->
+                    timingTexts = timingTexts.toMutableList().also { it[index] = value }
+                }, Modifier.fillMaxWidth(), enabled = enabled && selected,
+                    label = { Text(stringResource(label)) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = selected && parsedTimings[index] == null,
+                    supportingText = { Text(stringResource(R.string.power_timing_range,
+                        key.range.first, key.range.last, key.defaultSeconds)) })
+            }
+            Text(stringResource(R.string.power_timing_help), style = MaterialTheme.typography.bodySmall)
+            Button(enabled = enabled && (!selected || (parsed != null && parsedSync != null && validTimings)) &&
+                (selected != savedEnabled || (selected && (parsed != savedSeconds || parsedSync != savedSyncSeconds || timings != savedTimings))), onClick = {
                     val lead = parsed ?: savedSeconds
-                    settings.save(selected, lead)
-                    savedEnabled = selected; savedSeconds = lead
+                    val sync = parsedSync ?: savedSyncSeconds
+                    val guards = timings ?: savedTimings
+                    settings.save(selected, lead, sync, guards)
+                    savedEnabled = selected; savedSeconds = lead; savedSyncSeconds = sync; savedTimings = guards
                     // Only contact an already-running service. Never launch a node or request a password here.
                     if (NodeState.flow.value.run in listOf(RunPhase.RUNNING, RunPhase.SUSPENDED)) {
                         context.startService(Intent(context, NodeService::class.java).setAction(NodeService.RECONFIGURE))

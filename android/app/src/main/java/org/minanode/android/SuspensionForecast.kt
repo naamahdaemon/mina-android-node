@@ -9,25 +9,26 @@ data class SuspensionForecast(val reason: SuspensionReason = SuspensionReason.OF
 /** Predict only known time gates, then validate against the real suspension policy. */
 object SuspensionForecastPolicy {
     fun estimate(now: Long, slots: List<ProductionSlot>, leadSeconds: Int, awakeSince: Long,
-        syncedSince: Long?, freshSchedule: Boolean, alarmsAllowed: Boolean, blocks: List<ProducedBlock>): SuspensionForecast {
+        syncedSince: Long?, freshSchedule: Boolean, alarmsAllowed: Boolean, blocks: List<ProducedBlock>,
+        syncSeconds: Int = ProducerPowerPolicy.DEFAULT_SYNC_SECONDS, timings: PowerTimings = PowerTimings()): SuspensionForecast {
         if (!alarmsAllowed) return SuspensionForecast(SuspensionReason.ALARM)
         if (!freshSchedule || slots.none { it.timeMs > now }) return SuspensionForecast(SuspensionReason.SCHEDULE)
         if (syncedSince == null) return SuspensionForecast(SuspensionReason.SYNC)
         // No countdown to completion of a proof whose finish is still unknown.
         if (blocks.any { !ProducerPowerPolicy.discardedBeforeProof(it) && ProducerPowerPolicy.unfinished(it) &&
-                ProducerPowerPolicy.latestEvent(it)?.let { time -> now - time in 0..(15 * 60_000L) } == true }) {
+                ProducerPowerPolicy.latestEvent(it)?.let { time -> now - time in 0..timings.ms(PowerTiming.UNFINISHED) } == true }) {
             return SuspensionForecast(SuspensionReason.PRODUCTION)
         }
         if (slots.any { it.timeMs > now && now >= it.timeMs - leadSeconds * 1000L }) {
             return SuspensionForecast(SuspensionReason.SLOT)
         }
-        var at = maxOf(now, awakeSince + ProducerPowerPolicy.MIN_AWAKE_MS, syncedSince + ProducerPowerPolicy.STABLE_MS)
+        var at = maxOf(now, awakeSince + timings.ms(PowerTiming.AWAKE), syncedSince + timings.ms(PowerTiming.STABLE))
         blocks.filterNot(ProducerPowerPolicy::discardedBeforeProof).forEach { block ->
-            ProducerPowerPolicy.latestEvent(block)?.let { at = maxOf(at, it + ProducerPowerPolicy.AFTER_SLOT_MS + 1) }
+            ProducerPowerPolicy.latestEvent(block)?.let { at = maxOf(at, it + timings.ms(PowerTiming.GRACE) + 1) }
         }
-        slots.filter { it.timeMs <= now }.forEach { at = maxOf(at, it.timeMs + ProducerPowerPolicy.AFTER_SLOT_MS + 1) }
+        slots.filter { it.timeMs <= now }.forEach { at = maxOf(at, it.timeMs + timings.ms(PowerTiming.GRACE) + 1) }
         // Do not promise a countdown when its end falls too close to the next wake-up.
-        if (ProducerPowerPolicy.wakeAt(at, slots, leadSeconds, awakeSince, syncedSince, true, blocks = blocks) == null) {
+        if (ProducerPowerPolicy.wakeAt(at, slots, leadSeconds, awakeSince, syncedSince, true, blocks = blocks, syncSeconds = syncSeconds, timings = timings) == null) {
             return SuspensionForecast(SuspensionReason.SLOT)
         }
         return if (at > now) SuspensionForecast(SuspensionReason.COUNTDOWN, at)
