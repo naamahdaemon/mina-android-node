@@ -203,6 +203,9 @@ class MainActivity : ComponentActivity() {
                             onAlertTiming = { lead, reminder ->
                                 appearance.setProductionAlertTiming(lead, reminder)
                                 alertLeadSeconds = lead; alertReminderSeconds = reminder })
+                        if (current == NodePage.SETTINGS) TextButton(onClick = {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/naamahdaemon/mina-android-node/blob/main/PRIVACY.md")))
+                        }) { Text(stringResource(R.string.privacy_policy)) }
                         if (current == NodePage.SETTINGS) ProducerPowerSettings(!preparingStart)
                         if (current == NodePage.SETTINGS) ProfileEditor(profile, !active && !preparingStart, hasKey,
                             onChange = { profile = it; profileDirty = true }, onNetwork = { profile = store.load(it); profileDirty = true; hasKey = vault.exists(it) },

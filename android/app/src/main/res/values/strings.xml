@@ -317,4 +317,5 @@
     <string name="power_timing_tip">Maximum best-tip age</string>
     <string name="power_timing_range">%1$d to %2$d seconds; default %3$d.</string>
     <string name="power_timing_help">Awake time applies to automatic suspension; manual Suspend still requires stable sync and production guards. The production hold starts again at proof completion, commit or discard (except a confirmed discard before proof). Unfinished work is protected from its latest event. The minimum gap concerns Block wake-ups, independently of Sync. Schedule and best-tip age limits prevent suspension on stale data. Shortening guards can leave less time to synchronize or finish production.</string>
+    <string name="privacy_policy">Privacy policy</string>
 </resources>
