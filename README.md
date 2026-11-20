@@ -110,3 +110,7 @@ For bug reports, include the app version, source commit, Android version, device
 The node engine and protocol implementation come from [Mina Rust](https://github.com/minanode/mina-rust); this repository supplies Android adaptations, application code and build tooling. Native packages and APK assets include the upstream license and third-party notices. The APK also contains a generated Android runtime dependency inventory, full license text and embedded attribution notices under `assets/app-licenses/`; these files accompany APK artifacts and GitHub releases. See [Android dependency licensing](docs/licenses.md).
 
 This project is licensed under the **Apache License 2.0**, matching Mina Rust. See [LICENSE](LICENSE) for the complete text, copied unchanged from the pinned upstream revision. Upstream copyright notices and third-party license terms remain applicable; the project license does not replace the individual licenses of bundled dependencies.
+
+## Privacy
+
+Read the [privacy policy](https://github.com/naamahdaemon/mina-android-node/blob/main/PRIVACY.md) for local key storage, peer-to-peer data exchanges, public blockchain data, monitoring, exports and deletion. It is also linked from the Android application settings.

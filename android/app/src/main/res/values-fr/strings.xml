@@ -317,4 +317,5 @@
     <string name="power_timing_tip">Âge maximal du dernier bloc</string>
     <string name="power_timing_range">De %1$d à %2$d secondes ; défaut %3$d.</string>
     <string name="power_timing_help">La durée minimale d’éveil concerne la suspension automatique ; Suspendre exige toujours une synchronisation stable et les protections de production. Le maintien repart à la fin de preuve, au commit ou à l’abandon (sauf abandon confirmé avant preuve). Une production en cours est protégée depuis son dernier événement. L’intervalle minimal concerne les réveils Block, indépendamment de Sync. Les limites d’âge du planning et du bloc empêchent la suspension avec des données anciennes. Réduire les protections peut laisser moins de temps pour se synchroniser ou terminer la production.</string>
+    <string name="privacy_policy">Politique de confidentialité</string>
 </resources>
