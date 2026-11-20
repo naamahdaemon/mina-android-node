@@ -279,7 +279,7 @@
     <string name="power_enable">Suspend between production windows</string>
     <string name="power_help">Off by default. Only for a running block producer. Pause the same native process: CPU work stops, RAM stays allocated, and resuming needs no password. Android killing the process still requires a new password. No production guarantee.</string>
     <string name="power_wake_lead">Resume before the slot (seconds)</string>
-    <string name="power_wake_range">60 to 7200 seconds; default 600. Independent of notification timing. Allow enough time to reconnect and synchronize.</string>
+    <string name="power_wake_range">60 to 7200 seconds; default 600. The larger of this lead and the initial notification lead is used. Allow enough time to reconnect and synchronize.</string>
     <string name="power_applied_on">Applied: power saving enabled</string>
     <string name="power_applied_off">Applied: continuous synchronization (power saving off)</string>
     <string name="power_alarm_access">Allow precise wake-ups in Android settings</string>

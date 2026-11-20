@@ -279,7 +279,7 @@
     <string name="power_enable">Suspendre entre les créneaux de production</string>
     <string name="power_help">Désactivé par défaut. Réservé au nœud producteur en cours. Le même processus natif est mis en pause : le CPU cesse de travailler, la RAM reste occupée et la reprise ne demande pas de mot de passe. Si Android tue le processus, le mot de passe reste nécessaire. Production non garantie.</string>
     <string name="power_wake_lead">Reprendre avant le slot (secondes)</string>
-    <string name="power_wake_range">De 60 à 7200 secondes ; défaut 600. Indépendant des notifications. Prévoyez le temps de reconnexion et de synchronisation.</string>
+    <string name="power_wake_range">De 60 à 7200 secondes ; défaut 600. Le plus grand délai entre celui-ci et la notification initiale est utilisé. Prévoyez le temps de reconnexion et de synchronisation.</string>
     <string name="power_applied_on">Appliqué : économie activée</string>
     <string name="power_applied_off">Appliqué : synchronisation continue (économie désactivée)</string>
     <string name="power_alarm_access">Autoriser les réveils précis dans Android</string>
