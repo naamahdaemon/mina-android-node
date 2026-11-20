@@ -17,4 +17,4 @@ Provide original, non-scrolling screenshots taken directly on the device, ideall
 
 The original attachment directory stays ignored by Git. Only these selected public assets are tracked.
 
-The three non-scrolling Monitor screenshots in `screenshots/en-US/` are retained as supplied, without resizing or changing UI content. Check the dimensions against the current Play Console upload requirements; these are not 1080-pixel-wide promotional assets. Use Resources and Production first; Timings/history is an additional view.
+The three non-scrolling Monitor screenshots in `screenshots/en-US/` are retained as supplied, without resizing or changing UI content. Each measures 576 x 1280 (ratio 9:20), not the 9:16 format requested by the displayed Play Console. They need an approved framing/crop or new captures before uploading to that field; these are not 1080-pixel-wide promotional assets. Use Resources and Production first; Timings/history is an additional view.
