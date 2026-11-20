@@ -63,7 +63,7 @@ jobs:
       - name: Test, lint and assemble unsigned release variant
         working-directory: android
         run: |
-          gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease
+          gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease bundleRelease
           python3 ../scripts/verify-android-tests.py app/build/test-results
       - name: Upload dependency inventory and test reports
         if: always()

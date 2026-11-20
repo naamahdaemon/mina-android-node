@@ -31,7 +31,7 @@ gradle --no-daemon --console=plain :app:exportReleaseDependencies
 cd "$root"
 python3 scripts/android-licenses.py android/app/build/reports/licenses/release-dependencies.json
 cd android
-gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease \
+gradle --no-daemon --console=plain testReleaseUnitTest lintRelease assembleRelease bundleRelease \
   2>&1 | tee "$root/logs/apk-build.log"
 python3 "$root/scripts/verify-android-tests.py" app/build/test-results
 cp app/build/outputs/apk/release/app-release.apk "$root/dist/mina-android-release.apk"
@@ -52,3 +52,22 @@ cd "$root/dist"
   "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs mina-android-release.apk
 } > APK-BUILD-INFO.txt
 sha256sum mina-android-release.apk > APK-SHA256SUMS
+
+# Google Play consumes a signed AAB; keep the existing APK artifact unchanged.
+cp "$root/android/app/build/outputs/bundle/release/app-release.aab" mina-android-release.aab
+jarsigner -J-Duser.language=en -verify mina-android-release.aab > "$root/logs/aab-signature.txt"
+grep -q 'jar verified\.' "$root/logs/aab-signature.txt"
+if grep -q 'unsigned entries' "$root/logs/aab-signature.txt"; then
+  echo 'Unsigned bundle entries detected' >&2; exit 1
+fi
+keytool -J-Duser.language=en -printcert -jarfile mina-android-release.aab > "$root/logs/aab-certificate.txt"
+actual=$(sed -n 's/^[[:space:]]*SHA256: //p' "$root/logs/aab-certificate.txt" | head -n 1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+expected=$(tr -d '[:space:]' < "$root/android-signing.sha256")
+test -n "$actual" && test "$actual" = "$expected"
+python3 "$root/scripts/verify-app-bundle.py" mina-android-release.aab mina-android-release.apk
+{
+  printf 'Build type: release\nVersion code: %s\nVersion name: %s\nApp source: %s\nNative run: %s\n' "$APK_VERSION_CODE" "$APK_VERSION_NAME" "${GITHUB_SHA:-local}" "${MINA_NATIVE_RUN_ID:-same-workflow}"
+  printf 'Bundle signing certificate SHA-256: %s\n' "$actual"
+  printf 'Native binaries match APK: true\nELF LOAD alignment: at least 16 KiB\n'
+} > AAB-BUILD-INFO.txt
+sha256sum mina-android-release.aab > AAB-SHA256SUMS
