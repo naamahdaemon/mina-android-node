@@ -256,6 +256,6 @@ The wake-up line identifies **Sync** or **Block**. The earlier deadline wins; ti
 
 The Android application workflow builds both the existing release APK and a signed release Android App Bundle, using the same source, version code/name and pinned signing identity. It reuses the compatible native artifact; adding a bundle does not rebuild Rust. The native workflow also publishes a bundle after its normal build.
 
-Download the `mina-android-play-bundle` artifact from a successful main run. Verify `AAB-SHA256SUMS`, then upload `mina-android-release.aab` in Play Console. `AAB-BUILD-INFO.txt` records provenance and signing identity. APK release packaging remains unchanged; the bundle is distributed as a separate Actions artifact.
+Download the `mina-android-play-bundle` artifact from a successful main run. Verify `AAB-SHA256SUMS`, then upload `mina-android-release.aab` in Play Console. `AAB-BUILD-INFO.txt` records provenance and signing identity. The bundle is available as a separate Actions artifact and is also attached to new GitHub releases as `mina-android.aab`, alongside the matching APK and native package.
 
 CI verifies the bundle signature and certificate, compares every packaged native library and license against the APK, and rejects ELF LOAD segments below 16 KiB alignment. This checks binary alignment, not a full runtime test on a 16 KiB device or Google Play policy acceptance. Play App Signing must use the intended app-signing certificate for compatibility with GitHub APKs. No Play upload or rollout is automatic.

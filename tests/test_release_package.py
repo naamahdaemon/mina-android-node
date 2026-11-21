@@ -66,6 +66,30 @@ class ReleaseTests(unittest.TestCase):
                 release.prepare(root, 'appsha', 'nativesha', 'v0.3.0', '1', '2')
             self.assertFalse((root / 'release').exists())
 
+    def test_bundle_checksum_is_verified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            bundle = root / 'artifacts/bundle'
+            bundle.mkdir()
+            (bundle / 'mina-android-release.aab').write_bytes(b'corrupt')
+            (bundle / 'AAB-SHA256SUMS').write_text(f'{release.digest(b"original")}  mina-android-release.aab\n')
+            with self.assertRaisesRegex(ValueError, 'Checksum mismatch'):
+                release.prepare(root, 'appsha', 'nativesha', 'v0.3.0', '1', '2')
+
+    def test_bundle_cannot_come_from_another_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            bundle = root / 'artifacts/bundle'
+            bundle.mkdir()
+            data = b'bundle'
+            (bundle / 'mina-android-release.aab').write_bytes(data)
+            (bundle / 'AAB-SHA256SUMS').write_text(f'{release.digest(data)}  mina-android-release.aab\n')
+            (bundle / 'AAB-BUILD-INFO.txt').write_text('App source: wrong\n')
+            with self.assertRaisesRegex(ValueError, 'source or version mismatch'):
+                release.prepare(root, 'appsha', 'nativesha', 'v0.3.0', '1', '2')
+
     def test_incorrect_app_source_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
