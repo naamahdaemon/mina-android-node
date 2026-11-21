@@ -74,6 +74,23 @@ def prepare(root, app_sha, native_sha, tag, apk_run, native_run):
         with zipfile.ZipFile(apk_dir / apk_name) as apk:
             data = apk.read('assets/app-licenses/' + name)
         (output / name).write_bytes(data)
+    bundle_dir = root / 'artifacts/bundle'
+    if bundle_dir.is_dir():
+        name = 'mina-android-release.aab'
+        verify_checksums((bundle_dir / 'AAB-SHA256SUMS').read_text(),
+                         lambda item: (bundle_dir / item).read_bytes(), {name})
+        bundle_info = (bundle_dir / 'AAB-BUILD-INFO.txt').read_text()
+        for prefix in ('App source: ', 'Version code: ', 'Version name: '):
+            expected_line = next(line for line in info.splitlines() if line.startswith(prefix))
+            if expected_line not in bundle_info.splitlines():
+                raise ValueError('Bundle/APK source or version mismatch')
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('verify_bundle', Path(__file__).with_name('verify-app-bundle.py'))
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        verifier.verify(bundle_dir / name, apk_dir / apk_name)
+        shutil.copyfile(bundle_dir / name, output / 'mina-android.aab')
+        shutil.copyfile(bundle_dir / 'AAB-BUILD-INFO.txt', output / 'AAB-BUILD-INFO.txt')
     provenance = dict(tag=tag, app_source=app_sha, native_source=native_sha,
                       apk_run_id=apk_run, native_run_id=native_run,
                       native_binary_sha256=digest(binary), upstream=json.loads(native_info))
@@ -84,6 +101,7 @@ def prepare(root, app_sha, native_sha, tag, apk_run, native_run):
         f'Experimental Mina Android Node {tag}\n\n'
         'Android application: Android 13+ / ARM64. Supports mainnet and devnet.\n\n'
         '- `mina-android.apk`: signed application update.\n'
+        + ('- `mina-android.aab`: matching signed Google Play upload bundle.\n' if bundle_dir.is_dir() else '') +
         '- `mina-android-arm64.tar.gz`: complete Termux package with launcher and license notices.\n'
         '- `mina-android-arm64`: standalone executable; prefer the complete archive for Termux.\n'
         '- `SHA256SUMS`: checksums for all attached assets.\n\n'
