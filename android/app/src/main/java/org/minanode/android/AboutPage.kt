@@ -24,7 +24,14 @@ fun AboutPage() {
     val engine = remember(context) {
         runCatching {
             val info = context.assets.open("node/BUILD-INFO.json").bufferedReader().use { JSONObject(it.readText()) }
-            info.optString("version").ifBlank { info.getString("revision").take(12) }
+            info.optString("version").ifBlank {
+                // Existing signed native packages predate the optional version field.
+                // Match their exact source revision; unknown revisions remain explicit.
+                when (val revision = info.getString("revision")) {
+                    "462a1c1cc257349de06b6ee0f4222e16cd1b3254" -> "0.23.0"
+                    else -> revision.take(12)
+                }
+            }
         }.getOrNull()
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
