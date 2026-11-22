@@ -177,6 +177,8 @@ class MainActivity : ComponentActivity() {
                                     factory = { DashboardView(it) { select(NodePage.NODE) } },
                                     modifier = Modifier.fillMaxSize(), update = { it.setAppearance(dark) }, onRelease = { it.dispose() })
                                 else Text(stringResource(R.string.dashboard_api_error), Modifier.padding(24.dp))
+                            } else if (current == NodePage.ABOUT) {
+                                AboutPage()
                             } else if (current == NodePage.JOURNAL) {
                                 Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(Modifier.fillMaxWidth().then(titleSwipe), horizontalArrangement = Arrangement.SpaceBetween) {

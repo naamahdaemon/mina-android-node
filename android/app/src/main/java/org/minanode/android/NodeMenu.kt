@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-enum class NodePage(val title: Int) { NODE(R.string.node), MONITOR(R.string.monitor), DASHBOARD(R.string.dashboard), SETTINGS(R.string.settings), JOURNAL(R.string.journal) }
+enum class NodePage(val title: Int) { NODE(R.string.node), MONITOR(R.string.monitor), DASHBOARD(R.string.dashboard), SETTINGS(R.string.settings), JOURNAL(R.string.journal), ABOUT(R.string.about) }
 
 @Composable
 fun NodeMenu(selected: NodePage, onSelect: (NodePage) -> Unit) {

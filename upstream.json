@@ -1,4 +1,5 @@
 {
+  "version": "0.23.0",
   "repository": "https://github.com/minanode/mina-rust.git",
   "revision": "462a1c1cc257349de06b6ee0f4222e16cd1b3254",
   "toolchain": "1.92.0",
