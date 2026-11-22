@@ -12,6 +12,7 @@ module.exports = async ({ github, context, core }) => {
     : await github.paginate(github.rest.actions.listWorkflowRuns, {
         ...repo, workflow_id: workflow.id, branch: 'main', status: 'completed', per_page: 50,
       });
+  let incompatibility;
   for (const run of runs) {
     if (run.workflow_id !== workflow.id || run.head_branch !== 'main'
         || run.head_repository?.full_name !== `${repo.owner}/${repo.repo}`
@@ -25,10 +26,14 @@ module.exports = async ({ github, context, core }) => {
       ...repo, base: run.head_sha, head: context.sha,
     })).data;
     if (!['ahead', 'identical'].includes(comparison.status) || (comparison.files || []).length >= 300) {
-      throw new Error('Native artifact ancestry cannot be verified. Run the native workflow for the current source.');
+      incompatibility = 'Native artifact ancestry cannot be verified. Run the native workflow for the current source.';
+      if (requested) throw new Error(incompatibility);
+      continue;
     }
     if ((comparison.files || []).some(f => isNativeInput(f.filename) || (f.previous_filename && isNativeInput(f.previous_filename)))) {
-      throw new Error('Native inputs changed since this artifact. Run Android native prototype first; no automatic Rust rebuild is performed here.');
+      incompatibility = 'Native inputs changed since this artifact. Run Android native prototype first; no automatic Rust rebuild is performed here.';
+      if (requested) throw new Error(incompatibility);
+      continue;
     }
     core.setOutput('run_id', String(run.id));
     core.setOutput('source_sha', run.head_sha);
@@ -37,5 +42,6 @@ module.exports = async ({ github, context, core }) => {
       .addRaw(`\nSource commit: ${run.head_sha}\n`).write();
     return;
   }
+  if (incompatibility) throw new Error(incompatibility);
   throw new Error('No unexpired mina-android-arm64 artifact found on main. Run Android native prototype first.');
 };

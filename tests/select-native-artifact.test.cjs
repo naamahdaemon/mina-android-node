@@ -11,7 +11,7 @@ test('mixed changes route to the full build, app-only changes do not', () => {
   assert.equal(isNativeInput('upstream.json'), true);
 });
 
-function fixture({ runs, changed = [], artifacts } = {}) {
+function fixture({ runs, changed = [], artifacts, comparisons = {} } = {}) {
   const outputs = {};
   const run = { id: 42, workflow_id: 7, head_branch: 'main', head_sha: 'old',
     head_repository: { full_name: 'owner/repo' }, event: 'push', status: 'completed',
@@ -24,8 +24,9 @@ function fixture({ runs, changed = [], artifacts } = {}) {
     github: {
       rest: {
         actions: { getWorkflow: async () => ({ data: { id: 7 } }),
+          getWorkflowRun: async ({ run_id }) => ({ data: (runs ?? [run]).find(r => r.id === run_id) }),
           listWorkflowRuns: listRuns, listWorkflowRunArtifacts: listArtifacts },
-        repos: { compareCommits: async () => ({ data: { status: 'ahead', files: changed } }) },
+        repos: { compareCommits: async ({ base }) => ({ data: comparisons[base] ?? { status: 'ahead', files: changed } }) },
       },
       paginate: async method => method === listRuns ? (runs ?? [run])
         : (artifacts ?? [{ name: 'mina-android-arm64', expired: false }]),
@@ -55,4 +56,35 @@ test('reports expired or missing artifacts without rebuilding Rust', async () =>
 test('does not select a pull request artifact', async () => {
   await assert.rejects(select(fixture({ runs: [{ workflow_id: 7, head_branch: 'main',
     head_repository: { full_name: 'owner/repo' }, event: 'pull_request', status: 'completed' }] })), /No unexpired/);
+});
+
+function nativeRun(id, sha) {
+  return { id, workflow_id: 7, head_branch: 'main', head_sha: sha,
+    head_repository: { full_name: 'owner/repo' }, event: 'push', status: 'completed',
+    html_url: `https://github.com/owner/repo/actions/runs/${id}` };
+}
+
+test('skips an incompatible newer artifact and reuses the older matching native source', async () => {
+  const f = fixture({ runs: [nativeRun(43, 'recent'), nativeRun(42, 'matching')],
+    comparisons: {
+      recent: { status: 'ahead', files: [{ filename: 'upstream.json' }] },
+      matching: { status: 'ahead', files: [{ filename: 'android/app/src/main/AboutPage.kt' }] },
+    } });
+  await select(f);
+  assert.equal(f.outputs.run_id, '42');
+  assert.equal(f.outputs.source_sha, 'matching');
+});
+
+test('never falls back from an explicitly requested incompatible native run', async () => {
+  const before = process.env.NATIVE_RUN_ID;
+  process.env.NATIVE_RUN_ID = '43';
+  try {
+    const f = fixture({ runs: [nativeRun(43, 'recent'), nativeRun(42, 'matching')],
+      comparisons: { recent: { status: 'ahead', files: [{ filename: 'upstream.json' }] } } });
+    await assert.rejects(select(f), /Native inputs changed/);
+    assert.deepEqual(f.outputs, {});
+  } finally {
+    if (before === undefined) delete process.env.NATIVE_RUN_ID;
+    else process.env.NATIVE_RUN_ID = before;
+  }
 });

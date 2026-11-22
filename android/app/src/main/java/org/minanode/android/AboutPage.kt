@@ -128,10 +128,11 @@ private fun AboutLink(label: String, uri: String, detail: String? = null) {
         } catch (_: ActivityNotFoundException) {
             Toast.makeText(context, unavailable, Toast.LENGTH_LONG).show()
         }
-    }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
+    }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("$label  \u2197")
-            detail?.let { SelectionContainer { Text(it, style = MaterialTheme.typography.bodySmall) } }
+            Text("$label  \u2197", modifier = Modifier.fillMaxWidth(), softWrap = true)
+            detail?.let { SelectionContainer { Text(it, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodySmall, softWrap = true) } }
         }
     }
 }
