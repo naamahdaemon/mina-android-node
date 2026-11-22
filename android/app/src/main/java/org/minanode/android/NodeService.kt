@@ -112,6 +112,9 @@ class NodeService : Service() {
             files.append("\n=== Starting ${profile.network.cli} ${java.time.Instant.now()} ===")
             files.append(if (profile.producer) "[app] Producer mode · password confirmed for this launch"
                 else "[app] Node mode without block production")
+            if (SnarkWorkerStartup.prepare(files.work, profile.snarker)) {
+                files.append("[app] Cleared saved dashboard SNARK worker startup setting: disabled in Android profile")
+            }
             val builder = ProcessBuilder(listOf(supervisor.absolutePath, binary.absolutePath)
                 + profile.arguments(files.work, producerFile)).directory(files.work).redirectErrorStream(true)
             builder.environment().apply {
