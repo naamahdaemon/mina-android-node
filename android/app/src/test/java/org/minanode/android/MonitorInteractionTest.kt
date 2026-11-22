@@ -93,6 +93,6 @@ class MonitorInteractionTest {
         assertEquals(view.bounds, ResourceViewport.select(samples + ResourceSample(21000, 5.0, 1000.0), window).bounds)
     }
     @Test fun navigationOrderIsStable() {
-        assertEquals(listOf("NODE", "MONITOR", "DASHBOARD", "SETTINGS", "JOURNAL"), NodePage.entries.map { it.name })
+        assertEquals(listOf("NODE", "MONITOR", "DASHBOARD", "SETTINGS", "JOURNAL", "ABOUT"), NodePage.entries.map { it.name })
     }
 }
