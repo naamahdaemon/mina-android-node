@@ -355,4 +355,5 @@
     <string name="about_private_source">Dépôt GitHub (privé)</string>
     <string name="about_private_notice">Ce dépôt est actuellement privé. Son accès est restreint jusqu’à sa publication.</string>
     <string name="about_jrwashburn">Pour mina-pool-payout, le moteur de calcul des paiements utilisé par le projet Mina Auto Payouts.</string>
+    <string name="error_snarker_saved_setting">Impossible d’effacer le réglage SNARK enregistré. Le nœud n’a pas démarré afin de ne pas activer le worker contre votre choix.</string>
 </resources>

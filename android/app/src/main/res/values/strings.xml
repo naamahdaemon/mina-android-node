@@ -355,4 +355,5 @@
     <string name="about_private_source">GitHub repository (private)</string>
     <string name="about_private_notice">This repository is currently private. Access is restricted until it becomes public.</string>
     <string name="about_jrwashburn">For mina-pool-payout, the payout calculation engine used by the Mina Auto Payouts project.</string>
+    <string name="error_snarker_saved_setting">Could not clear the saved SNARK worker setting. The node was not started to avoid enabling the worker against your settings.</string>
 </resources>

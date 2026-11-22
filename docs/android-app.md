@@ -43,6 +43,8 @@ Stop the node before editing its profile. Settings include:
 - Peer limit, P2P port, log level and optional extended network timeouts.
 - Chain persistence/restoration, checkpoint interval and restore timeout.
 
+At each explicit launch, the confirmed Android SNARK-worker setting takes precedence over the dashboard startup file. When disabled, the app removes only `snark-worker.json` from the selected network before starting Rust, preventing an old dashboard setting from silently re-enabling the worker. Keys, chain data and `snark-worker-included.json` history are preserved. The node will not start if that setting cannot be cleared safely. Dashboard changes during a run remain available when worker control is enabled; the Android profile is applied again at the next launch.
+
 The default checkpoint interval is 30 minutes. Availability of a setting does not establish that every role or combination has been validated on hardware. Account funding, stake and epoch eligibility are distinct from simply enabling production.
 
 ## Producer keys and passwords
